@@ -28,9 +28,8 @@ import type {
   Role,
 } from "../types";
 import {
-  connectionEdgeColors,
+  CONNECTION_KIND_LABELS,
   connectionTagSegments,
-  formatConnectionTags,
   PERSON_DRAG_MIME,
   personMatchesRoles,
   primaryRole,
@@ -245,8 +244,8 @@ function drawAttachedNodeLabel(
 }
 
 /**
- * Paint connection kinds/roles as individually colored label segments
- * along the edge (curved-aware), matching sidebar badge colors.
+ * Paint the strand tag ON the connection curve (midpoint + tangent).
+ * No sideways offset — label sits centered on the visible line.
  */
 function drawColoredEdgeLabel(
   context: CanvasRenderingContext2D,
@@ -269,23 +268,30 @@ function drawColoredEdgeLabel(
   if (!segments.length) {
     const fallback = edgeData.label?.trim();
     if (!fallback || fallback === "—") return;
-    segments = [{ text: fallback, color: "#cbd5e1" }];
+    segments = [
+      {
+        text: fallback,
+        color:
+          typeof edgeData.color === "string" && edgeData.color
+            ? edgeData.color
+            : "#cbd5e1",
+      },
+    ];
   }
 
   const size = settings.edgeLabelSize || 11;
   const font = settings.edgeLabelFont || "Inter, system-ui, sans-serif";
   const weight = settings.edgeLabelWeight || "600";
+  // 0 is valid (straight strand) — do not fall back to DEFAULT
   const curvature =
-    typeof edgeData.curvature === "number"
-      ? edgeData.curvature
-      : DEFAULT_EDGE_CURVATURE;
-  const keepLabelUpright = true;
+    typeof edgeData.curvature === "number" ? edgeData.curvature : 0;
 
+  const keepLabelUpright = true;
   const ltr = !keepLabelUpright || sourceData.x < targetData.x;
-  let sourceX = ltr ? sourceData.x : targetData.x;
-  let sourceY = ltr ? sourceData.y : targetData.y;
-  let targetX = ltr ? targetData.x : sourceData.x;
-  let targetY = ltr ? targetData.y : sourceData.y;
+  const sourceX = ltr ? sourceData.x : targetData.x;
+  const sourceY = ltr ? sourceData.y : targetData.y;
+  const targetX = ltr ? targetData.x : sourceData.x;
+  const targetY = ltr ? targetData.y : sourceData.y;
   const centerX = (sourceX + targetX) / 2;
   const centerY = (sourceY + targetY) / 2;
   const diffX = targetX - sourceX;
@@ -293,43 +299,22 @@ function drawColoredEdgeLabel(
   const diff = Math.sqrt(diffX * diffX + diffY * diffY);
   if (!Number.isFinite(diff) || diff < 1) return;
 
+  // Same quadratic control point as @sigma/edge-curve (on the stroke)
   const orientation = ltr ? 1 : -1;
-  let anchorX = centerX + diffY * curvature * orientation;
-  let anchorY = centerY - diffX * curvature * orientation;
+  const anchorX = centerX + diffY * curvature * orientation;
+  const anchorY = centerY - diffX * curvature * orientation;
 
-  const offset = (edgeData.size ?? 2) * 0.7 + 5;
-  const sourceOffsetVector = {
-    x: anchorY - sourceY,
-    y: -(anchorX - sourceX),
-  };
-  const sourceOffsetLen = Math.sqrt(
-    sourceOffsetVector.x ** 2 + sourceOffsetVector.y ** 2,
-  );
-  const targetOffsetVector = {
-    x: targetY - anchorY,
-    y: -(targetX - anchorX),
-  };
-  const targetOffsetLen = Math.sqrt(
-    targetOffsetVector.x ** 2 + targetOffsetVector.y ** 2,
-  );
-  if (sourceOffsetLen > 0) {
-    sourceX += (offset * sourceOffsetVector.x) / sourceOffsetLen;
-    sourceY += (offset * sourceOffsetVector.y) / sourceOffsetLen;
-  }
-  if (targetOffsetLen > 0) {
-    targetX += (offset * targetOffsetVector.x) / targetOffsetLen;
-    targetY += (offset * targetOffsetVector.y) / targetOffsetLen;
-  }
-  anchorX += (offset * diffY) / diff;
-  anchorY -= (offset * diffX) / diff;
-
-  // Midpoint of quadratic Bezier (t = 0.5)
+  // Bezier point + tangent at t = 0.5 (true curve midpoint)
+  const t = 0.5;
+  const mt = 1 - t;
   const midX =
-    0.25 * sourceX + 0.5 * anchorX + 0.25 * targetX;
+    mt * mt * sourceX + 2 * mt * t * anchorX + t * t * targetX;
   const midY =
-    0.25 * sourceY + 0.5 * anchorY + 0.25 * targetY;
-  const tangentX = anchorX - sourceX + (targetX - anchorX);
-  const tangentY = anchorY - sourceY + (targetY - anchorY);
+    mt * mt * sourceY + 2 * mt * t * anchorY + t * t * targetY;
+  const tangentX =
+    2 * mt * (anchorX - sourceX) + 2 * t * (targetX - anchorX);
+  const tangentY =
+    2 * mt * (anchorY - sourceY) + 2 * t * (targetY - anchorY);
   const angle = Math.atan2(tangentY, tangentX);
 
   const sep = " · ";
@@ -344,9 +329,8 @@ function drawColoredEdgeLabel(
     widths.reduce((a, b) => a + b, 0) +
     sepW * Math.max(segments.length - 1, 0);
 
-  // Skip if edge is too short for the full tag string
-  const approxLen = Math.sqrt((targetX - sourceX) ** 2 + (targetY - sourceY) ** 2);
-  if (approxLen < sourceData.size + targetData.size) {
+  // Skip if chord is shorter than the two node radii
+  if (diff < sourceData.size + targetData.size + totalW * 0.35) {
     context.restore();
     return;
   }
@@ -354,17 +338,17 @@ function drawColoredEdgeLabel(
   context.translate(midX, midY);
   context.rotate(angle);
 
-  // Soft backdrop so colors stay readable on the graph
-  const padX = 5;
-  const padY = 3;
-  context.fillStyle = "rgba(11, 16, 32, 0.72)";
+  // Compact backdrop centered on the stroke
+  const padX = 4;
+  const padY = 2;
+  context.fillStyle = "rgba(11, 16, 32, 0.78)";
   roundRect(
     context,
     -totalW / 2 - padX,
     -size / 2 - padY,
     totalW + padX * 2,
     size + padY * 2,
-    6,
+    5,
   );
   context.fill();
 
@@ -603,28 +587,32 @@ export function NetworkGraph({
       graph.dropEdge(edge);
     }
 
-    // One visual strand per selected kind/role so every tag color shows on the line
+    // One visual strand per kind/role — each tag label sits on its own colored curve
     for (const conn of visibleConnections) {
       if (!graph.hasNode(conn.source) || !graph.hasNode(conn.target)) continue;
       const kinds = Array.isArray(conn.kinds) ? conn.kinds : [];
       const roles = Array.isArray(conn.roles) ? conn.roles : [];
-      const colors = connectionEdgeColors(kinds, roles);
-      const n = colors.length;
-      const labelCarrier = Math.floor((n - 1) / 2);
-      const tagLabel = formatConnectionTags(kinds, roles);
+      const tags = connectionTagSegments(kinds, roles);
+      const strands: ConnectionTagSegment[] =
+        tags.length > 0 ? tags : [{ text: "—", color: "#94a3b8" }];
+      const n = strands.length;
       const strandSize = n > 1 ? 2.0 : 2.4;
 
-      colors.forEach((color, i) => {
-        const isLabel = i === labelCarrier;
+      strands.forEach((tag, i) => {
         const key = n === 1 ? conn.id : `${conn.id}__strand_${i}`;
+        const kindMatch = kinds.find(
+          (k) => CONNECTION_KIND_LABELS[k] === tag.text,
+        );
+        const roleMatch = roles.find((r) => ROLE_LABELS[r] === tag.text);
+        const hasLabel = tag.text !== "—";
         graph.addEdgeWithKey(key, conn.source, conn.target, {
           size: strandSize,
-          color,
-          label: isLabel ? tagLabel : null,
-          kinds: isLabel ? kinds : [],
-          roles: isLabel ? roles : [],
+          color: tag.color,
+          label: hasLabel ? tag.text : null,
+          kinds: kindMatch ? [kindMatch] : [],
+          roles: roleMatch ? [roleMatch] : [],
           type: "straight" as const,
-          forceLabel: isLabel,
+          forceLabel: hasLabel,
         });
       });
     }
@@ -649,12 +637,11 @@ export function NetworkGraph({
         },
       ) => {
         if (typeof parallelMinIndex === "number") {
+          const idx = parallelIndex ?? 0;
+          const curved = idx !== 0;
           graph.mergeEdgeAttributes(edge, {
-            type: parallelIndex ? "curved" : "straight",
-            curvature: getCurvature(
-              parallelIndex ?? 0,
-              parallelMaxIndex ?? 1,
-            ),
+            type: curved ? "curved" : "straight",
+            curvature: getCurvature(idx, parallelMaxIndex ?? 1),
           });
         } else if (typeof parallelIndex === "number") {
           graph.mergeEdgeAttributes(edge, {
@@ -662,7 +649,10 @@ export function NetworkGraph({
             curvature: getCurvature(parallelIndex, parallelMaxIndex ?? 1),
           });
         } else {
-          graph.setEdgeAttribute(edge, "type", "straight");
+          graph.mergeEdgeAttributes(edge, {
+            type: "straight",
+            curvature: 0,
+          });
         }
       },
     );
