@@ -473,3 +473,93 @@ a.btn[aria-disabled="true"] {
 .error-text {
   color: var(--danger);
 }
+
+.panel-locked {
+  opacity: 0.92;
+}
+
+.lock-hint {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px dashed #475569;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.lock-hint strong {
+  color: #cbd5e1;
+}
+
+input:disabled,
+select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn-row .btn {
+  flex: 1 1 auto;
+}
+
+.profile-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #0d1426;
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15);
+}
+
+.profile-preview-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 3px solid var(--accent);
+  background: #0f172a;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.profile-preview-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.profile-preview-name {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.profile-preview-platform {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.profile-preview-link {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-preview-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}

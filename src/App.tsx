@@ -39,7 +39,7 @@ export default function App() {
       setConnections(data.connections);
     } catch (err) {
       setGraphError(
-        err instanceof Error ? err.message : "Failed to load network data.",
+        err instanceof Error ? err.message : "Netzwerkdaten konnten nicht geladen werden.",
       );
     } finally {
       setGraphLoading(false);
@@ -57,12 +57,12 @@ export default function App() {
     if (authStatus === "ok") {
       flash(
         params.get("edit") === "0"
-          ? "Signed in — view only (missing editor role)."
-          : "Signed in with Discord.",
+          ? "Angemeldet — nur Ansicht (keine Editor-Rolle)."
+          : "Mit Discord angemeldet.",
       );
       void auth.refresh();
     } else if (authStatus === "error") {
-      flash(`Discord sign-in failed (${params.get("reason") ?? "unknown"}).`);
+      flash(`Discord-Anmeldung fehlgeschlagen (${params.get("reason") ?? "unbekannt"}).`);
     }
     window.history.replaceState({}, "", window.location.pathname);
   }, [auth, flash]);
@@ -70,15 +70,15 @@ export default function App() {
   const handleAddPerson = useCallback(
     async (draft: Omit<Person, "id">) => {
       if (!auth.canEdit) {
-        flash("Sign in with the editor Discord role to add people.");
+        flash("Mit Discord-Editor-Rolle anmelden, um Personen hinzuzufügen.");
         return;
       }
       try {
         const person = await apiAddPerson(draft);
         setPeople((prev) => [...prev, person]);
-        flash(`Added ${person.name}.`);
+        flash(`${person.name} hinzugefügt.`);
       } catch (err) {
-        flash(err instanceof Error ? err.message : "Could not add person.");
+        flash(err instanceof Error ? err.message : "Person konnte nicht hinzugefügt werden.");
       }
     },
     [auth.canEdit, flash],
@@ -87,7 +87,7 @@ export default function App() {
   const handleUpdateCategory = useCallback(
     async (personId: string, category: Category) => {
       if (!auth.canEdit) {
-        flash("Sign in with the editor Discord role to edit categories.");
+        flash("Mit Discord-Editor-Rolle anmelden, um Kategorien zu ändern.");
         return;
       }
       try {
@@ -95,10 +95,10 @@ export default function App() {
         setPeople((prev) =>
           prev.map((p) => (p.id === person.id ? person : p)),
         );
-        flash(`Updated ${person.name} → ${category}.`);
+        flash(`${person.name} → ${category} aktualisiert.`);
       } catch (err) {
         flash(
-          err instanceof Error ? err.message : "Could not update category.",
+          err instanceof Error ? err.message : "Kategorie konnte nicht aktualisiert werden.",
         );
       }
     },
@@ -108,11 +108,11 @@ export default function App() {
   const handleCreateConnection = useCallback(
     async (sourceId: string, targetId: string) => {
       if (!auth.canEdit) {
-        flash("Sign in with the editor Discord role to draw connections.");
+        flash("Mit Discord-Editor-Rolle anmelden, um Verbindungen zu ziehen.");
         return;
       }
       if (sourceId === targetId) {
-        flash("Cannot connect a person to themselves.");
+        flash("Eine Person kann nicht mit sich selbst verbunden werden.");
         return;
       }
       const exists = connections.some(
@@ -121,7 +121,7 @@ export default function App() {
           (c.source === targetId && c.target === sourceId),
       );
       if (exists) {
-        flash("Those two are already connected.");
+        flash("Diese beiden sind schon verbunden.");
         return;
       }
       try {
@@ -130,10 +130,10 @@ export default function App() {
         setConnectFromId(null);
         const a = people.find((p) => p.id === sourceId)?.name ?? sourceId;
         const b = people.find((p) => p.id === targetId)?.name ?? targetId;
-        flash(`Connected ${a} ↔ ${b}.`);
+        flash(`${a} ↔ ${b} verbunden.`);
       } catch (err) {
         flash(
-          err instanceof Error ? err.message : "Could not create connection.",
+          err instanceof Error ? err.message : "Verbindung konnte nicht erstellt werden.",
         );
       }
     },
@@ -176,8 +176,8 @@ export default function App() {
           <p className="eyebrow">Lucky · Discord</p>
           <h1>The Wall of Shame</h1>
           <p className="tagline">
-            Interactive community network map. Nodes are people, edges are
-            connections.
+            Interaktive Community-Netzwerk-Karte. Knoten = Personen, Kanten =
+            Verbindungen.
           </p>
         </header>
 
@@ -217,7 +217,7 @@ export default function App() {
           onToggle={toggleCategory}
         />
         {graphLoading ? (
-          <p className="stage-hint">Loading network…</p>
+          <p className="stage-hint">Netzwerk wird geladen…</p>
         ) : graphError ? (
           <p className="stage-hint error-text">{graphError}</p>
         ) : (
@@ -231,8 +231,8 @@ export default function App() {
         )}
         <p className="stage-hint">
           {auth.canEdit
-            ? "Drag the canvas · scroll to zoom · click a node to start a connection, click another to finish"
-            : "Drag the canvas · scroll to zoom · sign in with Discord (editor role) to edit"}
+            ? "Ziehen · Scrollen zum Zoomen · Knoten klicken für Verbindung, zweiten Knoten zum Fertigstellen"
+            : "Ziehen · Scrollen zum Zoomen · Discord (Editor-Rolle) zum Bearbeiten"}
         </p>
       </main>
     </div>

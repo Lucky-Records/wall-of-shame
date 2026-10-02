@@ -9,7 +9,7 @@ interface CategoryFiltersProps {
 export function CategoryFilters({ visible, onToggle }: CategoryFiltersProps) {
   return (
     <div className="legend-bar">
-      <span className="legend-title">Categories</span>
+      <span className="legend-title">Kategorien</span>
       {ALL_CATEGORIES.map((category) => {
         const active = visible.has(category);
         return (

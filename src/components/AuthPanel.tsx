@@ -26,19 +26,19 @@ export function AuthPanel({
   if (loading) {
     return (
       <section className="panel auth-panel">
-        <p className="hint">Checking Discord session…</p>
+        <p className="hint">Discord-Sitzung wird geprüft…</p>
       </section>
     );
   }
 
   return (
     <section className="panel auth-panel">
-      <h2>Access</h2>
+      <h2>Zugang</h2>
       {!discordConfigured ? (
         <p className="demo-banner" role="status">
-          <strong>Discord OAuth not configured.</strong> Set{" "}
-          <code>DISCORD_CLIENT_ID</code>, <code>DISCORD_CLIENT_SECRET</code>, and{" "}
-          <code>SESSION_SECRET</code> (see README). Public viewing still works.
+          <strong>Discord-OAuth nicht konfiguriert.</strong> Setze{" "}
+          <code>DISCORD_CLIENT_ID</code>, <code>DISCORD_CLIENT_SECRET</code> und{" "}
+          <code>SESSION_SECRET</code> (siehe README). Öffentliche Ansicht geht trotzdem.
         </p>
       ) : null}
 
@@ -54,18 +54,18 @@ export function AuthPanel({
           <div className="auth-user-meta">
             <strong>{user.globalName || user.username}</strong>
             <span className={`role-pill ${canEdit ? "editor" : "viewer"}`}>
-              {canEdit ? "Editor" : "View only"}
+              {canEdit ? "Editor" : "Nur Ansicht"}
             </span>
           </div>
           <button type="button" className="btn ghost" onClick={onLogout}>
-            Sign out
+            Abmelden
           </button>
         </div>
       ) : (
         <div className="stack">
           <p className="hint">
-            Anyone can view the network. Editing requires Discord sign-in and
-            the configured editor role.
+            Jeder kann das Netzwerk sehen. Bearbeiten braucht Discord-Login und
+            die konfigurierte Editor-Rolle.
           </p>
           <a
             className={`btn primary discord-btn${!discordConfigured ? " disabled" : ""}`}
@@ -75,12 +75,12 @@ export function AuthPanel({
               if (!discordConfigured) e.preventDefault();
             }}
           >
-            Sign in with Discord
+            Mit Discord anmelden
           </a>
           {discordConfigured && !roleGateConfigured ? (
             <p className="hint">
-              Role gate not set yet — add <code>DISCORD_GUILD_ID</code> and{" "}
-              <code>DISCORD_EDITOR_ROLE_ID</code> so editors can be verified.
+              Rollen-Gate fehlt noch — <code>DISCORD_GUILD_ID</code> und{" "}
+              <code>DISCORD_EDITOR_ROLE_ID</code> setzen, damit Editoren geprüft werden.
             </p>
           ) : null}
         </div>
@@ -88,8 +88,8 @@ export function AuthPanel({
 
       {authenticated && !canEdit ? (
         <p className="hint" style={{ marginTop: "0.75rem" }}>
-          You are signed in but do not have the editor role in the configured
-          guild.
+          Du bist angemeldet, hast aber nicht die Editor-Rolle auf dem
+          konfigurierten Server.
         </p>
       ) : null}
 

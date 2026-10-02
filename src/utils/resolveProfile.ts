@@ -66,14 +66,14 @@ type ParsedProfile =
 function parseProfileUrl(rawUrl: string): ParsedProfile | ResolveError {
   const trimmed = rawUrl.trim();
   if (!trimmed) {
-    return { ok: false, error: "Paste a Twitch or X/Twitter profile URL." };
+    return { ok: false, error: "Twitch- oder X/Twitter-Profil-URL einfügen." };
   }
 
   let parsed: URL;
   try {
     parsed = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
   } catch {
-    return { ok: false, error: "That does not look like a valid URL." };
+    return { ok: false, error: "Das sieht nicht nach einer gültigen URL aus." };
   }
 
   const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
@@ -82,10 +82,10 @@ function parseProfileUrl(rawUrl: string): ParsedProfile | ResolveError {
   if (host === "twitch.tv" || host.endsWith(".twitch.tv")) {
     const slug = (segments[0] ?? "").toLowerCase();
     if (!slug || TWITCH_RESERVED.has(slug)) {
-      return { ok: false, error: "Could not find a Twitch login in that URL." };
+      return { ok: false, error: "In dieser URL steckt kein Twitch-Login." };
     }
     if (!/^[a-z0-9_]{1,25}$/.test(slug)) {
-      return { ok: false, error: "That Twitch login looks invalid." };
+      return { ok: false, error: "Dieser Twitch-Login sieht ungültig aus." };
     }
     return {
       platform: "twitch",
@@ -106,11 +106,11 @@ function parseProfileUrl(rawUrl: string): ParsedProfile | ResolveError {
     if (!slug || X_RESERVED.has(slug)) {
       return {
         ok: false,
-        error: "Could not find an X/Twitter username in that URL.",
+        error: "In dieser URL steckt kein X/Twitter-Username.",
       };
     }
     if (!/^[a-z0-9_]{1,15}$/.test(slug)) {
-      return { ok: false, error: "That X/Twitter username looks invalid." };
+      return { ok: false, error: "Dieser X/Twitter-Username sieht ungültig aus." };
     }
     const platform = host.includes("twitter") ? "twitter" : "x";
     return {
@@ -125,7 +125,7 @@ function parseProfileUrl(rawUrl: string): ParsedProfile | ResolveError {
 
   return {
     ok: false,
-    error: "Only Twitch and X/Twitter profile links are supported right now.",
+    error: "Aktuell werden nur Twitch- und X/Twitter-Profil-Links unterstützt.",
   };
 }
 
@@ -168,7 +168,7 @@ async function resolveTwitch(
     return {
       ok: false,
       error:
-        "Could not reach the Twitch resolver. Start the Vite API (npm run dev) or deploy Pages Functions.",
+        "Twitch-Resolver nicht erreichbar. Vite-API starten (npm run dev) oder Pages Functions deployen.",
     };
   }
 
@@ -185,7 +185,7 @@ async function resolveTwitch(
   try {
     data = (await res.json()) as typeof data;
   } catch {
-    return { ok: false, error: "Twitch resolver returned an invalid response." };
+    return { ok: false, error: "Twitch-Resolver hat eine ungültige Antwort geliefert." };
   }
 
   if (data.demo) {
@@ -195,7 +195,7 @@ async function resolveTwitch(
   if (!res.ok || !data.ok || !data.user) {
     return {
       ok: false,
-      error: data.error ?? `Twitch lookup failed (${res.status}).`,
+      error: data.error ?? `Twitch-Abfrage fehlgeschlagen (${res.status}).`,
     };
   }
 
@@ -231,14 +231,14 @@ async function resolveX(
     if (res.status === 429) {
       return {
         ok: false,
-        error: "X/Twitter rate limit hit. Try again in a moment.",
+        error: "X/Twitter Rate-Limit. Gleich nochmal versuchen.",
       };
     }
 
     if (res.status === 404) {
       return {
         ok: false,
-        error: `No X/Twitter profile found for “${slug}”.`,
+        error: `Kein X/Twitter-Profil für „${slug}“ gefunden.`,
       };
     }
 
@@ -272,7 +272,7 @@ async function resolveX(
       if (data.code === 404 || /not found/i.test(data.message ?? "")) {
         return {
           ok: false,
-          error: `No X/Twitter profile found for “${slug}”.`,
+          error: `Kein X/Twitter-Profil für „${slug}“ gefunden.`,
         };
       }
     }
