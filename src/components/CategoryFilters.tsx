@@ -1,5 +1,5 @@
 import type { Category } from "../types";
-import { ALL_CATEGORIES, CATEGORY_COLORS } from "../types";
+import { ALL_CATEGORIES, CATEGORY_COLORS, CATEGORY_LABELS } from "../types";
 
 interface CategoryFiltersProps {
   visible: Set<Category>;
@@ -24,7 +24,7 @@ export function CategoryFilters({ visible, onToggle }: CategoryFiltersProps) {
               className="swatch"
               style={{ background: CATEGORY_COLORS[category] }}
             />
-            {category}
+            {CATEGORY_LABELS[category]}
           </button>
         );
       })}

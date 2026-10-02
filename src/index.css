@@ -596,3 +596,126 @@ select:disabled {
   color: var(--text);
   text-decoration: underline;
 }
+
+/* Drag & drop profile → graph */
+.role-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.role-fieldset legend {
+  padding: 0;
+  margin: 0 0 0.4rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #0d1426;
+  color: var(--muted);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.role-chip:hover:not(:disabled) {
+  color: var(--text);
+  border-color: #475569;
+}
+
+.role-chip.on {
+  color: var(--text);
+  background: #1a2440;
+}
+
+.role-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.profile-preview-draggable {
+  cursor: grab;
+  user-select: none;
+  position: relative;
+  gap: 0.65rem;
+}
+
+.profile-preview-draggable:active {
+  cursor: grabbing;
+}
+
+.profile-preview-draggable.is-dragging {
+  opacity: 0.55;
+}
+
+.drag-grip {
+  color: #64748b;
+  font-size: 0.9rem;
+  letter-spacing: -0.15em;
+  line-height: 1;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.drag-hint {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.graph-dropzone {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.graph-dropzone .graph-canvas {
+  flex: 1;
+}
+
+.graph-dropzone.is-dragover {
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+  border-radius: 12px;
+}
+
+.graph-dropzone.is-dragover .graph-canvas {
+  filter: brightness(1.08);
+}
+
+.graph-drop-hint {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.85);
+  background: rgba(139, 92, 246, 0.12);
+  border-radius: 12px;
+}

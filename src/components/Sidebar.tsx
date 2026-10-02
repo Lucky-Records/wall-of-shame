@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import type { Category, Person } from "../types";
-import { ALL_CATEGORIES, CATEGORY_COLORS } from "../types";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
+import type { Category, Person, PersonDraft } from "../types";
+import {
+  ALL_CATEGORIES,
+  CATEGORY_COLORS,
+  CATEGORY_LABELS,
+  PERSON_DRAG_MIME,
+} from "../types";
 import {
   defaultCategoryForPlatform,
   resolveProfileFromUrl,
@@ -10,7 +15,8 @@ interface SidebarProps {
   people: Person[];
   connectFromId: string | null;
   canEdit: boolean;
-  onAddPerson: (person: Omit<Person, "id">) => void;
+  previewClearToken?: number;
+  onAddPerson: (person: PersonDraft) => void;
   onUpdateCategory: (personId: string, category: Category) => void;
   onDeletePerson: (personId: string) => void;
   onStartConnect: (personId: string | null) => void;
@@ -20,12 +26,6 @@ interface SidebarProps {
 
 type PreviewPerson = Omit<Person, "id" | "category"> & {
   demo?: boolean;
-};
-
-const CATEGORY_LABELS: Record<Category, string> = {
-  Streamer: "Streamer",
-  Mod: "Mod",
-  Bubble: "Bubble",
 };
 
 function platformLabel(platform: Person["platform"]): string {
@@ -39,6 +39,7 @@ export function Sidebar({
   people,
   connectFromId,
   canEdit,
+  previewClearToken = 0,
   onAddPerson,
   onUpdateCategory,
   onDeletePerson,
@@ -52,6 +53,8 @@ export function Sidebar({
   const [connectTarget, setConnectTarget] = useState("");
   const [resolving, setResolving] = useState(false);
   const [preview, setPreview] = useState<PreviewPerson | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const previewCardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!canEdit) {
@@ -70,6 +73,19 @@ export function Sidebar({
 
   const connectFrom = people.find((p) => p.id === connectFromId) ?? null;
   const fieldsDisabled = !canEdit || resolving;
+
+  function clearPreview() {
+    setPreview(null);
+    setError(null);
+    setUrl("");
+  }
+
+  useEffect(() => {
+    if (previewClearToken <= 0) return;
+    setPreview(null);
+    setError(null);
+    setUrl("");
+  }, [previewClearToken]);
 
   async function handleLookup(e: FormEvent) {
     e.preventDefault();
@@ -90,23 +106,50 @@ export function Sidebar({
     }
   }
 
-  function handleConfirmAdd() {
-    if (!canEdit || !preview) return;
-    onAddPerson({
+  function draftFromPreview(): PersonDraft | null {
+    if (!preview) return null;
+    return {
       name: preview.name,
       avatarUrl: preview.avatarUrl,
       profileUrl: preview.profileUrl,
       platform: preview.platform,
       category,
-    });
-    setUrl("");
-    setPreview(null);
-    setError(null);
+    };
+  }
+
+  function handleConfirmAdd() {
+    if (!canEdit) return;
+    const draft = draftFromPreview();
+    if (!draft) return;
+    onAddPerson(draft);
+    clearPreview();
   }
 
   function handleCancelPreview() {
-    setPreview(null);
-    setError(null);
+    clearPreview();
+  }
+
+  function handleDragStart(e: DragEvent<HTMLDivElement>) {
+    if (!canEdit || !preview) {
+      e.preventDefault();
+      return;
+    }
+    const draft = draftFromPreview();
+    if (!draft) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData(PERSON_DRAG_MIME, JSON.stringify(draft));
+    e.dataTransfer.setData("text/plain", `${draft.name} (${CATEGORY_LABELS[draft.category]})`);
+    e.dataTransfer.effectAllowed = "copy";
+    if (previewCardRef.current) {
+      e.dataTransfer.setDragImage(previewCardRef.current, 40, 40);
+    }
+    setDragging(true);
+  }
+
+  function handleDragEnd() {
+    setDragging(false);
   }
 
   function handleConnect(e: FormEvent) {
@@ -154,18 +197,72 @@ export function Sidebar({
           </form>
         ) : (
           <div className="stack">
-            <div className="profile-preview" aria-live="polite">
+            <p className="hint" id="role-hint">
+              Zuerst Funktion wählen, dann die Karte auf den Graph ziehen.
+            </p>
+
+            <fieldset className="role-fieldset" aria-describedby="role-hint">
+              <legend>Funktion</legend>
+              <div className="role-chips" role="radiogroup" aria-label="Funktion">
+                {ALL_CATEGORIES.map((c) => {
+                  const selected = category === c;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={`role-chip${selected ? " on" : ""}`}
+                      style={
+                        selected
+                          ? {
+                              borderColor: CATEGORY_COLORS[c],
+                              boxShadow: `0 0 0 2px ${CATEGORY_COLORS[c]}33`,
+                            }
+                          : undefined
+                      }
+                      onClick={() => setCategory(c)}
+                      disabled={!canEdit}
+                    >
+                      <span
+                        className="swatch"
+                        style={{ background: CATEGORY_COLORS[c] }}
+                      />
+                      {CATEGORY_LABELS[c]}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <div
+              ref={previewCardRef}
+              className={`profile-preview profile-preview-draggable${dragging ? " is-dragging" : ""}`}
+              draggable={canEdit}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              aria-grabbed={dragging}
+              title="Auf den Graph ziehen, um zu platzieren"
+            >
+              <span className="drag-grip" aria-hidden="true">
+                ⋮⋮
+              </span>
               <img
                 src={preview.avatarUrl}
                 alt=""
                 width={64}
                 height={64}
                 className="profile-preview-avatar"
+                draggable={false}
               />
               <div className="profile-preview-meta">
                 <strong className="profile-preview-name">{preview.name}</strong>
                 <span className="profile-preview-platform">
                   {platformLabel(preview.platform)}
+                  {" · "}
+                  <span style={{ color: CATEGORY_COLORS[category] }}>
+                    {CATEGORY_LABELS[category]}
+                  </span>
                   {preview.demo ? " · Demo-Avatar" : ""}
                 </span>
                 <a
@@ -173,25 +270,14 @@ export function Sidebar({
                   target="_blank"
                   rel="noreferrer"
                   className="profile-preview-link"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {preview.profileUrl.replace(/^https?:\/\//, "")}
                 </a>
+                <span className="drag-hint">Ziehen → Graph</span>
               </div>
             </div>
-            <label>
-              Kategorie
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
-                disabled={!canEdit}
-              >
-                {ALL_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORY_LABELS[c]}
-                  </option>
-                ))}
-              </select>
-            </label>
+
             <div className="btn-row">
               <button
                 type="button"
@@ -214,8 +300,8 @@ export function Sidebar({
         )}
 
         <p className="hint">
-          Link einfügen → Profilbild & Name prüfen → hinzufügen. Danach
-          Verbindungen ziehen.
+          Link → Profil laden → Funktion wählen → auf den Graph ziehen (oder
+          Button). Danach Verbindungen ziehen.
         </p>
       </section>
 
@@ -292,7 +378,6 @@ export function Sidebar({
           ) : null}
         </div>
       </section>
-
 
       {canEdit && connectFrom ? (
         <section className="panel panel-danger">
@@ -373,7 +458,7 @@ export function Sidebar({
                     <select
                       className="person-category"
                       value={p.category}
-                      aria-label={`Kategorie für ${p.name}`}
+                      aria-label={`Funktion für ${p.name}`}
                       onChange={(e) =>
                         onUpdateCategory(p.id, e.target.value as Category)
                       }
@@ -408,3 +493,4 @@ export function Sidebar({
     </>
   );
 }
+

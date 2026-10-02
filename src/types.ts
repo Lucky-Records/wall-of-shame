@@ -15,6 +15,20 @@ export interface Connection {
   target: string;
 }
 
+export interface GraphPosition {
+  x: number;
+  y: number;
+}
+
+/** Draft used when dragging a resolved profile onto the graph. */
+export interface PersonDraft {
+  name: string;
+  avatarUrl: string;
+  profileUrl: string;
+  platform: Person["platform"];
+  category: Category;
+}
+
 export const CATEGORY_COLORS: Record<Category, string> = {
   Streamer: "#a78bfa",
   Mod: "#34d399",
@@ -22,3 +36,12 @@ export const CATEGORY_COLORS: Record<Category, string> = {
 };
 
 export const ALL_CATEGORIES: Category[] = ["Streamer", "Mod", "Bubble"];
+
+/** German UI labels — Bubble is shown as User; data key stays Bubble. */
+export const CATEGORY_LABELS: Record<Category, string> = {
+  Streamer: "Streamer",
+  Mod: "Mod",
+  Bubble: "User",
+};
+
+export const PERSON_DRAG_MIME = "application/x-wos-person";

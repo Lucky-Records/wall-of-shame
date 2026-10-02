@@ -9,8 +9,14 @@ import {
   apiUpdateCategory,
   fetchGraph,
 } from "./hooks/useGraphApi";
-import type { Category, Connection, Person } from "./types";
-import { ALL_CATEGORIES } from "./types";
+import type {
+  Category,
+  Connection,
+  GraphPosition,
+  Person,
+  PersonDraft,
+} from "./types";
+import { ALL_CATEGORIES, CATEGORY_LABELS } from "./types";
 
 export default function App() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -22,6 +28,10 @@ export default function App() {
   );
   const [connectFromId, setConnectFromId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [positionHints, setPositionHints] = useState<
+    Record<string, GraphPosition>
+  >({});
+  const [previewClearToken, setPreviewClearToken] = useState(0);
 
   const flash = useCallback((message: string) => {
     setStatusMessage(message);
@@ -51,11 +61,17 @@ export default function App() {
   }, [reloadGraph]);
 
   const handleAddPerson = useCallback(
-    async (draft: Omit<Person, "id">) => {
+    async (draft: PersonDraft, position?: GraphPosition) => {
       try {
         const person = await apiAddPerson(draft);
         setPeople((prev) => [...prev, person]);
-        flash(`${person.name} hinzugefügt.`);
+        if (position) {
+          setPositionHints((prev) => ({ ...prev, [person.id]: position }));
+        }
+        setPreviewClearToken((n) => n + 1);
+        flash(
+          `${person.name} als ${CATEGORY_LABELS[person.category]} hinzugefügt.`,
+        );
       } catch (err) {
         flash(
           err instanceof Error
@@ -74,7 +90,9 @@ export default function App() {
         setPeople((prev) =>
           prev.map((p) => (p.id === person.id ? person : p)),
         );
-        flash(`${person.name} → ${category} aktualisiert.`);
+        flash(
+          `${person.name} → ${CATEGORY_LABELS[category]} aktualisiert.`,
+        );
       } catch (err) {
         flash(
           err instanceof Error
@@ -103,6 +121,11 @@ export default function App() {
           ),
         );
         setConnectFromId((cur) => (cur === removed.id ? null : cur));
+        setPositionHints((prev) => {
+          const next = { ...prev };
+          delete next[removed.id];
+          return next;
+        });
         flash(`${removed.name} entfernt.`);
       } catch (err) {
         flash(
@@ -163,6 +186,13 @@ export default function App() {
     [connectFromId, handleCreateConnection],
   );
 
+  const handlePersonDrop = useCallback(
+    (draft: PersonDraft, position: GraphPosition) => {
+      void handleAddPerson(draft, position);
+    },
+    [handleAddPerson],
+  );
+
   const toggleCategory = useCallback((category: Category) => {
     setVisibleCategories((prev) => {
       const next = new Set(prev);
@@ -192,6 +222,7 @@ export default function App() {
           people={people}
           connectFromId={connectFromId}
           canEdit={true}
+          previewClearToken={previewClearToken}
           onAddPerson={(draft) => {
             void handleAddPerson(draft);
           }}
@@ -223,12 +254,14 @@ export default function App() {
             connections={connections}
             visibleCategories={visibleCategories}
             connectFromId={connectFromId}
+            positionHints={positionHints}
             onNodeClick={handleNodeClick}
+            onPersonDrop={handlePersonDrop}
           />
         )}
         <p className="stage-hint">
-          Ziehen · Scrollen zum Zoomen · Knoten klicken für Verbindung, zweiten
-          Knoten zum Fertigstellen
+          Profilkarte auf Graph ziehen · Scrollen zum Zoomen · Knoten klicken für
+          Verbindung
         </p>
       </main>
     </div>
