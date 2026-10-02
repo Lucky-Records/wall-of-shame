@@ -7,4 +7,4 @@ pages_build_output_dir = "dist"
 
 [[kv_namespaces]]
 binding = "GRAPH_KV"
-id = "e60c1475ee7e4e0d8b03ba655bd3d1df"
+id = "f5589df19cc74053b800376d7f0cad78"
