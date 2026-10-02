@@ -350,3 +350,24 @@ select:focus {
     min-height: 55vh;
   }
 }
+
+.demo-banner {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.demo-banner code {
+  font-size: 0.78rem;
+  color: #fde68a;
+}
+
+.hint code {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+}

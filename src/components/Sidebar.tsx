@@ -1,8 +1,9 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Category, Person } from "../types";
 import { ALL_CATEGORIES, CATEGORY_COLORS } from "../types";
 import {
   defaultCategoryForPlatform,
+  fetchTwitchReady,
   resolveProfileFromUrl,
 } from "../utils/resolveProfile";
 
@@ -27,6 +28,18 @@ export function Sidebar({
   const [category, setCategory] = useState<Category>("Streamer");
   const [error, setError] = useState<string | null>(null);
   const [connectTarget, setConnectTarget] = useState("");
+  const [resolving, setResolving] = useState(false);
+  const [twitchReady, setTwitchReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchTwitchReady().then((ready) => {
+      if (!cancelled) setTwitchReady(ready);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const sortedPeople = useMemo(
     () => [...people].sort((a, b) => a.name.localeCompare(b.name)),
@@ -35,20 +48,28 @@ export function Sidebar({
 
   const connectFrom = people.find((p) => p.id === connectFromId) ?? null;
 
-  function handleAdd(e: FormEvent) {
+  async function handleAdd(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    const result = resolveProfileFromUrl(url);
-    if (!result.ok) {
-      setError(result.error);
-      return;
+    setResolving(true);
+    try {
+      const result = await resolveProfileFromUrl(url);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      onAddPerson({
+        ...result.person,
+        category,
+      });
+      if (result.demo) {
+        setError(null);
+      }
+      setUrl("");
+      setCategory(defaultCategoryForPlatform(result.person.platform));
+    } finally {
+      setResolving(false);
     }
-    onAddPerson({
-      ...result.person,
-      category,
-    });
-    setUrl("");
-    setCategory(defaultCategoryForPlatform(result.person.platform));
   }
 
   function handleConnect(e: FormEvent) {
@@ -69,9 +90,18 @@ export function Sidebar({
         </p>
       </header>
 
+      {twitchReady === false ? (
+        <p className="demo-banner" role="status">
+          <strong>Demo mode:</strong> Twitch Client ID/Secret missing. Twitch
+          links use a stub avatar. Set <code>TWITCH_CLIENT_ID</code> +{" "}
+          <code>TWITCH_CLIENT_SECRET</code> (see README). X/Twitter still
+          resolves for real.
+        </p>
+      ) : null}
+
       <section className="panel">
         <h2>Add person</h2>
-        <form onSubmit={handleAdd} className="stack">
+        <form onSubmit={(e) => void handleAdd(e)} className="stack">
           <label>
             Twitch or X profile URL
             <input
@@ -80,6 +110,7 @@ export function Sidebar({
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://twitch.tv/someone"
               required
+              disabled={resolving}
             />
           </label>
           <label>
@@ -87,6 +118,7 @@ export function Sidebar({
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as Category)}
+              disabled={resolving}
             >
               {ALL_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
@@ -96,12 +128,13 @@ export function Sidebar({
             </select>
           </label>
           {error ? <p className="error">{error}</p> : null}
-          <button type="submit" className="btn primary">
-            Add to network
+          <button type="submit" className="btn primary" disabled={resolving}>
+            {resolving ? "Resolving…" : "Add to network"}
           </button>
         </form>
         <p className="hint">
-          Profile name and avatar are mock-resolved from the URL slug for now.
+          Twitch uses Helix via <code>/api/twitch-user</code>. X uses public
+          profile helpers (no paid API key).
         </p>
       </section>
 
@@ -145,7 +178,11 @@ export function Sidebar({
                     ))}
                 </select>
               </label>
-              <button type="submit" className="btn primary" disabled={!connectTarget}>
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={!connectTarget}
+              >
                 Connect
               </button>
               <button
