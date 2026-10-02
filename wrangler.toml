@@ -1,0 +1,6 @@
+# The Wall of Shame — Cloudflare Pages
+# Deploy with: npm run deploy
+# Node 20 note: use project-local wrangler@3.x (global wrangler 4+ needs Node 22).
+name = "wall-of-shame"
+compatibility_date = "2024-11-11"
+pages_build_output_dir = "dist"

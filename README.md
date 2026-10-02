@@ -109,15 +109,28 @@ npm run preview
 | Environment | Redirect URL |
 | --- | --- |
 | Local Vite | `http://localhost:5173/api/auth/callback` |
-| Production | `https://YOUR_DOMAIN/api/auth/callback` |
+| Production | `https://wall-of-shame-20h.pages.dev/api/auth/callback` |
+
+Add the production URL in Discord Developer Portal → OAuth2 → Redirects.
 
 ## Deploy (Cloudflare Pages)
 
-- Build command: `npm run build`
-- Output directory: `dist`
-- Pages Functions are picked up from `functions/`
-- Set all env vars above as project Variables / Secrets
-- Set `APP_ORIGIN` to your public `https://…` origin
+Production: **https://wall-of-shame-20h.pages.dev**  
+Project: `wall-of-shame` (account: Lucky.punch3018@gmail.com)
+
+```bash
+npm run build
+npm run deploy          # wrangler pages deploy dist --project-name=wall-of-shame
+npm run pages:secrets   # bulk-upload from local .env (never commit .env)
+```
+
+Notes:
+
+- **Node 20:** this repo pins **wrangler@3.x** (`^3.114.6`) because wrangler 4+ requires Node 22. Use `npx wrangler` from the project (do not rely on a global wrangler 4).
+- Build output: `dist`; Pages Functions from `functions/`
+- Set secrets via `wrangler pages secret bulk .env --project-name=wall-of-shame` (or dashboard)
+- `APP_ORIGIN` must be `https://wall-of-shame-20h.pages.dev` in production secrets
+- Auth for deploy: Wrangler OAuth (`npx wrangler login`) — the injected `CLOUDFLARE_API_TOKEN` on some boxes may be invalid; unset it so OAuth is used
 
 ## Data / persistence
 
