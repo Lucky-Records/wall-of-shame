@@ -201,6 +201,7 @@ export function Sidebar({
   const [resolving, setResolving] = useState(false);
   const [preview, setPreview] = useState<PreviewPerson | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [peopleSearch, setPeopleSearch] = useState("");
   const previewCardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -214,9 +215,20 @@ export function Sidebar({
   }, [canEdit, onStartConnect]);
 
   const peopleSorted = useMemo(
-    () => [...people].sort((a, b) => a.name.localeCompare(b.name)),
+    () =>
+      [...people].sort((a, b) =>
+        a.name.localeCompare(b.name, "de", { sensitivity: "base" }),
+      ),
     [people],
   );
+
+  const peopleFiltered = useMemo(() => {
+    const q = peopleSearch.trim().toLocaleLowerCase("de");
+    if (!q) return peopleSorted;
+    return peopleSorted.filter((p) =>
+      p.name.toLocaleLowerCase("de").includes(q),
+    );
+  }, [peopleSorted, peopleSearch]);
 
   const peopleById = useMemo(() => {
     const map = new Map<string, Person>();
@@ -709,9 +721,19 @@ export function Sidebar({
 
         <div className="sidebar-col sidebar-col-people">
 <section className="panel">
-        <h2>Personen ({people.length})</h2>
+        <div className="people-panel-header">
+          <h2>Personen ({peopleFiltered.length})</h2>
+          <input
+            type="search"
+            className="people-search"
+            placeholder="Suchen…"
+            value={peopleSearch}
+            onChange={(e) => setPeopleSearch(e.target.value)}
+            aria-label="Personen suchen"
+          />
+        </div>
         <ul className="people-list">
-          {peopleSorted.map((p) => (
+          {peopleFiltered.map((p) => (
             <li key={p.id}>
               <div
                 className={`person-row person-row-multi${connectFromId === p.id ? " active" : ""}`}
