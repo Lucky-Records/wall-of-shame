@@ -60,7 +60,7 @@ const CONNECTION_KINDS = new Set<ConnectionKind>([
   "Streamerkollege",
 ]);
 
-export const DEFAULT_CONNECTION_KIND: ConnectionKind = "Fren";
+export const DEFAULT_CONNECTION_KIND: ConnectionKind = "Mod";
 export const DEFAULT_ROLE: Role = "Streamer";
 
 export function cloneGraph(data: GraphData): GraphData {

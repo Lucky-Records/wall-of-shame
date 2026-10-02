@@ -22,8 +22,8 @@ import type {
   Role,
 } from "./types";
 import {
+  ALL_CONNECTION_KINDS,
   ALL_ROLES,
-  DEFAULT_CONNECTION_KIND,
   formatConnectionTags,
   formatRoles,
 } from "./types";
@@ -49,9 +49,7 @@ export default function App() {
     () => new Set(ALL_ROLES),
   );
   const [connectFromId, setConnectFromId] = useState<string | null>(null);
-  const [connectKinds, setConnectKinds] = useState<ConnectionKind[]>([
-    DEFAULT_CONNECTION_KIND,
-  ]);
+  const [connectKinds, setConnectKinds] = useState<ConnectionKind[]>([]);
   const [connectRoles, setConnectRoles] = useState<ConnectionRole[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [positionHints, setPositionHints] = useState<
@@ -227,15 +225,16 @@ export default function App() {
         flash("Eine Person kann nicht mit sich selbst verbunden werden.");
         return;
       }
-      if (!kinds.length && !roles.length) {
-        flash("Mindestens einen Verbindungstyp oder ein Rollen-Tag wählen.");
+      const offeredKinds = kinds.filter((k) => ALL_CONNECTION_KINDS.includes(k));
+      if (!offeredKinds.length && !roles.length) {
+        flash("Mindestens ein Rollen-Tag wählen.");
         return;
       }
       try {
         const connection = await apiAddConnection(
           sourceId,
           targetId,
-          kinds,
+          offeredKinds,
           roles,
         );
         setConnections((prev) => {

@@ -142,10 +142,11 @@ function KindMultiSelect({
   onChange: (kinds: ConnectionKind[]) => void;
   disabled?: boolean;
 }) {
+  if (ALL_CONNECTION_KINDS.length === 0) return null;
   return (
     <fieldset className="role-fieldset" disabled={disabled}>
       <legend>Beziehungstypen (Mehrfachauswahl)</legend>
-      <p className="role-multi-hint">z.B. Mod + Fren gleichzeitig</p>
+      <p className="role-multi-hint">Mod — Fren wählst du unten als Rollen-Tag</p>
       <div className="role-checks" role="group" aria-label="Beziehungstypen">
         {ALL_CONNECTION_KINDS.map((k) => {
           const selected = value.includes(k);
@@ -388,7 +389,16 @@ export function Sidebar({
     );
     if (!offeredKinds.length && !connectRoles.length) return;
     if (existingDirected) {
-      onUpdateConnectionTags(existingDirected.id, offeredKinds, connectRoles);
+      // Chips no longer offer Mod/Fren/Streamerkollege. Keep those stored kinds
+      // until a later edit; Update only changes the role tags (and any offered kinds).
+      const kept = existingDirected.kinds.filter(
+        (k) => !ALL_CONNECTION_KINDS.includes(k),
+      );
+      const nextKinds = [...offeredKinds];
+      for (const k of kept) {
+        if (!nextKinds.includes(k)) nextKinds.push(k);
+      }
+      onUpdateConnectionTags(existingDirected.id, nextKinds, connectRoles);
       return;
     }
     onCreateConnection(connectFromId, connectTarget, offeredKinds, connectRoles);
@@ -639,8 +649,8 @@ export function Sidebar({
         ) : (
           <p className="hint">
             {existingDirected
-              ? "Bestehende Verbindung ist vorausgewählt. Weitere Typen oder Tags an- oder abwählen, dann Update — das ersetzt diese Richtung, ohne eine zweite Kante."
-              : "Beziehungstypen und/oder Rollen-Tags wählen (Mehrfachauswahl), dann Von → Nach oder zwei Knoten im Graph. Richtung: Von → Nach (Pfeil)."}
+              ? "Bestehende Verbindung ist vorausgewählt. Rollen-Tags an- oder abwählen, dann Update — das ersetzt diese Richtung, ohne eine zweite Kante."
+              : "Rollen-Tags wählen (Mehrfachauswahl), dann Von → Nach oder zwei Knoten im Graph. Richtung: Von → Nach (Pfeil)."}
           </p>
         )}
         <div className="stack">
@@ -658,7 +668,7 @@ export function Sidebar({
             colors={CONNECTION_ROLE_COLORS}
             labels={CONNECTION_ROLE_LABELS}
             legend="Rollen-Tags an der Kante (Mehrfachauswahl)"
-            hint="Optional — z.B. Streamerfren, Ex-Mod oder gebannt neben Beziehungstypen"
+            hint="z.B. Streamerfren, Mod, Twitter, Fren, Ex-Mod oder gebannt"
           />
 
           <label>
