@@ -117,16 +117,3 @@ export async function fetchTwitchUserByLogin(
   return { ok: true, user };
 }
 
-export function jsonResponse(
-  body: unknown,
-  init: { status?: number; headers?: Record<string, string> } = {},
-): Response {
-  return new Response(JSON.stringify(body), {
-    status: init.status ?? 200,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      ...init.headers,
-    },
-  });
-}

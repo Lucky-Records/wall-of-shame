@@ -27,3 +27,6 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Local mutable graph store (seed is committed)
+data/graph.json

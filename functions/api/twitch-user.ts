@@ -1,8 +1,8 @@
 import {
   fetchTwitchUserByLogin,
   hasTwitchCredentials,
-  jsonResponse,
 } from "../_lib/twitch";
+import { jsonResponse } from "../_lib/http";
 
 interface Env {
   TWITCH_CLIENT_ID?: string;

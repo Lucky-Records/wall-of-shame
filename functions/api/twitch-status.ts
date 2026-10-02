@@ -1,4 +1,5 @@
-import { hasTwitchCredentials, jsonResponse } from "../_lib/twitch";
+import { hasTwitchCredentials } from "../_lib/twitch";
+import { jsonResponse } from "../_lib/http";
 
 interface Env {
   TWITCH_CLIENT_ID?: string;
