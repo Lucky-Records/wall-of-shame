@@ -335,6 +335,7 @@ export function Sidebar({
 
   return (
     <>
+      <div className="sidebar-panels">
       <section className={`panel${!canEdit ? " panel-locked" : ""}`}>
         <h2>Person hinzufügen</h2>
         {!canEdit ? (
@@ -723,6 +724,7 @@ export function Sidebar({
         </ul>
       </section>
 
+      </div>
       {statusMessage ? <p className="status">{statusMessage}</p> : null}
     </>
   );
