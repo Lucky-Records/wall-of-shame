@@ -8,6 +8,7 @@ import {
   apiDeleteConnection,
   apiDeletePerson,
   apiUpdateCategory,
+  apiUpdatePosition,
   fetchGraph,
 } from "./hooks/useGraphApi";
 import type {
@@ -24,6 +25,18 @@ import {
   CONNECTION_KIND_LABELS,
   DEFAULT_CONNECTION_KIND,
 } from "./types";
+
+function hasCoords(
+  value: { x?: number; y?: number } | null | undefined,
+): boolean {
+  return (
+    !!value &&
+    typeof value.x === "number" &&
+    Number.isFinite(value.x) &&
+    typeof value.y === "number" &&
+    Number.isFinite(value.y)
+  );
+}
 
 export default function App() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -55,6 +68,13 @@ export default function App() {
       const data = await fetchGraph();
       setPeople(data.people);
       setConnections(data.connections);
+      const hints: Record<string, GraphPosition> = {};
+      for (const person of data.people) {
+        if (hasCoords(person)) {
+          hints[person.id] = { x: person.x!, y: person.y! };
+        }
+      }
+      setPositionHints(hints);
     } catch (err) {
       setGraphError(
         err instanceof Error
@@ -73,9 +93,18 @@ export default function App() {
   const handleAddPerson = useCallback(
     async (draft: PersonDraft, position?: GraphPosition) => {
       try {
-        const person = await apiAddPerson(draft);
+        const person = await apiAddPerson(
+          position
+            ? { ...draft, x: position.x, y: position.y }
+            : draft,
+        );
         setPeople((prev) => [...prev, person]);
-        if (position) {
+        if (hasCoords(person)) {
+          setPositionHints((prev) => ({
+            ...prev,
+            [person.id]: { x: person.x!, y: person.y! },
+          }));
+        } else if (position) {
           setPositionHints((prev) => ({ ...prev, [person.id]: position }));
         }
         setPreviewClearToken((n) => n + 1);
@@ -87,6 +116,30 @@ export default function App() {
           err instanceof Error
             ? err.message
             : "Person konnte nicht hinzugefügt werden.",
+        );
+      }
+    },
+    [flash],
+  );
+
+  const handleNodeMove = useCallback(
+    async (personId: string, position: GraphPosition) => {
+      setPeople((prev) =>
+        prev.map((p) =>
+          p.id === personId ? { ...p, x: position.x, y: position.y } : p,
+        ),
+      );
+      setPositionHints((prev) => ({ ...prev, [personId]: position }));
+      try {
+        const person = await apiUpdatePosition(personId, position);
+        setPeople((prev) =>
+          prev.map((p) => (p.id === person.id ? person : p)),
+        );
+      } catch (err) {
+        flash(
+          err instanceof Error
+            ? err.message
+            : "Position konnte nicht gespeichert werden.",
         );
       }
     },
@@ -302,11 +355,15 @@ export default function App() {
             positionHints={positionHints}
             onNodeClick={handleNodeClick}
             onPersonDrop={handlePersonDrop}
+            onNodeMove={(id, pos) => {
+              void handleNodeMove(id, pos);
+            }}
           />
         )}
         <p className="stage-hint">
-          Profilkarte auf Graph ziehen · Scrollen zum Zoomen · Verbindungstyp
-          wählen, dann Knoten klicken
+          Profil-Icons ziehen zum Verschieben · Hintergrund ziehen zum
+          Schieben · Scrollen zum Zoomen · Verbindungstyp wählen, dann Knoten
+          tippen
         </p>
       </main>
     </div>

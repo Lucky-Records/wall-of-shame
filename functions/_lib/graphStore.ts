@@ -9,6 +9,9 @@ export type Person = {
   avatarUrl: string;
   profileUrl: string;
   platform: "twitch" | "twitter" | "x" | "unknown";
+  /** Graph layout position (persisted). */
+  x?: number;
+  y?: number;
 };
 
 export type Connection = {
@@ -67,18 +70,35 @@ export function isConnectionKind(value: unknown): value is ConnectionKind {
   );
 }
 
+export function isFiniteCoord(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 export function isPerson(value: unknown): value is Person {
   if (!value || typeof value !== "object") return false;
   const p = value as Record<string, unknown>;
-  return (
+  const base =
     typeof p.id === "string" &&
     typeof p.name === "string" &&
     isCategory(p.category) &&
     typeof p.avatarUrl === "string" &&
     typeof p.profileUrl === "string" &&
     typeof p.platform === "string" &&
-    PLATFORMS.has(p.platform)
-  );
+    PLATFORMS.has(p.platform);
+  if (!base) return false;
+  if (p.x !== undefined && !isFiniteCoord(p.x)) return false;
+  if (p.y !== undefined && !isFiniteCoord(p.y)) return false;
+  return true;
+}
+
+/** Copy optional layout coords onto a person object. */
+export function withCoords(person: Person, x?: unknown, y?: unknown): Person {
+  const next: Person = { ...person };
+  if (isFiniteCoord(x) && isFiniteCoord(y)) {
+    next.x = x;
+    next.y = y;
+  }
+  return next;
 }
 
 /** Strict check after migration (kind required). */
@@ -118,7 +138,21 @@ export function normalizeGraph(raw: unknown): GraphData {
   }
   const g = raw as Record<string, unknown>;
   const people = Array.isArray(g.people)
-    ? g.people.filter(isPerson).map((p) => ({ ...p }))
+    ? g.people.filter(isPerson).map((p) => {
+        const copy: Person = {
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          avatarUrl: p.avatarUrl,
+          profileUrl: p.profileUrl,
+          platform: p.platform,
+        };
+        if (isFiniteCoord(p.x) && isFiniteCoord(p.y)) {
+          copy.x = p.x;
+          copy.y = p.y;
+        }
+        return copy;
+      })
     : [];
   const connections: Connection[] = [];
   if (Array.isArray(g.connections)) {

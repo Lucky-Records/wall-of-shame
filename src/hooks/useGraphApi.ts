@@ -58,6 +58,27 @@ export async function apiUpdateCategory(
   return data.person;
 }
 
+export async function apiUpdatePosition(
+  personId: string,
+  position: { x: number; y: number },
+): Promise<Person> {
+  const res = await fetch(`/api/graph/people/${encodeURIComponent(personId)}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(position),
+  });
+  const data = (await res.json()) as {
+    ok?: boolean;
+    person?: Person;
+    error?: string;
+  };
+  if (!res.ok || !data.ok || !data.person) {
+    throw new Error(data.error ?? `Update position failed (${res.status}).`);
+  }
+  return data.person;
+}
+
 export async function apiAddConnection(
   source: string,
   target: string,

@@ -27,6 +27,7 @@ interface NetworkGraphProps {
   positionHints: Record<string, GraphPosition>;
   onNodeClick: (personId: string) => void;
   onPersonDrop: (draft: PersonDraft, position: GraphPosition) => void;
+  onNodeMove: (personId: string, position: GraphPosition) => void;
 }
 
 function seededPosition(id: string, index: number, total: number) {
@@ -40,6 +41,30 @@ function seededPosition(id: string, index: number, total: number) {
     x: Math.cos(angle) * radius,
     y: Math.sin(angle) * radius,
   };
+}
+
+function hasCoords(
+  value: { x?: number; y?: number } | undefined | null,
+): value is GraphPosition {
+  return (
+    !!value &&
+    typeof value.x === "number" &&
+    Number.isFinite(value.x) &&
+    typeof value.y === "number" &&
+    Number.isFinite(value.y)
+  );
+}
+
+function resolvePosition(
+  person: Person,
+  hints: Record<string, GraphPosition>,
+  index: number,
+  total: number,
+): GraphPosition {
+  if (hasCoords(person)) return { x: person.x, y: person.y };
+  const hint = hints[person.id];
+  if (hasCoords(hint)) return hint;
+  return seededPosition(person.id, index, total);
 }
 
 function parsePersonDraft(raw: string): PersonDraft | null {
@@ -89,6 +114,7 @@ export function NetworkGraph({
   positionHints,
   onNodeClick,
   onPersonDrop,
+  onNodeMove,
 }: NetworkGraphProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -96,12 +122,18 @@ export function NetworkGraph({
   const graphRef = useRef<Graph | null>(null);
   const onNodeClickRef = useRef(onNodeClick);
   const onPersonDropRef = useRef(onPersonDrop);
+  const onNodeMoveRef = useRef(onNodeMove);
   const positionHintsRef = useRef(positionHints);
+  const draggedNodeRef = useRef<string | null>(null);
+  const dragMovedRef = useRef(false);
+  const skipClickRef = useRef(false);
   onNodeClickRef.current = onNodeClick;
   onPersonDropRef.current = onPersonDrop;
+  onNodeMoveRef.current = onNodeMove;
   positionHintsRef.current = positionHints;
 
   const [dragOver, setDragOver] = useState(false);
+  const [draggingNode, setDraggingNode] = useState(false);
 
   const visiblePeople = useMemo(
     () => people.filter((p) => visibleCategories.has(p.category)),
@@ -121,7 +153,7 @@ export function NetworkGraph({
     [connections, visibleIds],
   );
 
-  // Create sigma once
+  // Create sigma once + node drag handlers
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -150,7 +182,62 @@ export function NetworkGraph({
 
     sigmaRef.current = sigma;
 
+    function endNodeDrag() {
+      const nodeId = draggedNodeRef.current;
+      if (!nodeId || !graphRef.current) {
+        draggedNodeRef.current = null;
+        dragMovedRef.current = false;
+        sigma.setSetting("enableCameraPanning", true);
+        setDraggingNode(false);
+        return;
+      }
+
+      const moved = dragMovedRef.current;
+      const x = graphRef.current.getNodeAttribute(nodeId, "x") as number;
+      const y = graphRef.current.getNodeAttribute(nodeId, "y") as number;
+      draggedNodeRef.current = null;
+      dragMovedRef.current = false;
+      sigma.setSetting("enableCameraPanning", true);
+      setDraggingNode(false);
+
+      if (moved && Number.isFinite(x) && Number.isFinite(y)) {
+        skipClickRef.current = true;
+        onNodeMoveRef.current(nodeId, { x, y });
+      }
+    }
+
+    sigma.on("downNode", ({ node, event }) => {
+      draggedNodeRef.current = node;
+      dragMovedRef.current = false;
+      skipClickRef.current = false;
+      sigma.setSetting("enableCameraPanning", false);
+      setDraggingNode(true);
+      event.preventSigmaDefault();
+    });
+
+    sigma.on("moveBody", ({ event }) => {
+      const nodeId = draggedNodeRef.current;
+      if (!nodeId || !graphRef.current) return;
+      const pos = sigma.viewportToGraph({ x: event.x, y: event.y });
+      graphRef.current.setNodeAttribute(nodeId, "x", pos.x);
+      graphRef.current.setNodeAttribute(nodeId, "y", pos.y);
+      dragMovedRef.current = true;
+      event.preventSigmaDefault();
+    });
+
+    sigma.on("upNode", () => {
+      endNodeDrag();
+    });
+
+    sigma.on("upStage", () => {
+      if (draggedNodeRef.current) endNodeDrag();
+    });
+
     sigma.on("clickNode", ({ node }) => {
+      if (skipClickRef.current) {
+        skipClickRef.current = false;
+        return;
+      }
       onNodeClickRef.current(node);
     });
 
@@ -167,6 +254,9 @@ export function NetworkGraph({
     const sigma = sigmaRef.current;
     if (!graph || !sigma) return;
 
+    // Don't clobber a live drag
+    if (draggedNodeRef.current) return;
+
     const existingNodes = new Set(graph.nodes());
     const nextNodes = new Set(visiblePeople.map((p) => p.id));
     const newlyAdded: string[] = [];
@@ -179,8 +269,14 @@ export function NetworkGraph({
       const color = CATEGORY_COLORS[person.category];
       const highlighted = connectFromId === person.id;
       const size = highlighted ? 28 : 22;
-      const hint = positionHintsRef.current[person.id];
-      const seeded = seededPosition(person.id, index, visiblePeople.length);
+      const pos = resolvePosition(
+        person,
+        positionHintsRef.current,
+        index,
+        visiblePeople.length,
+      );
+      const pinned =
+        hasCoords(person) || hasCoords(positionHintsRef.current[person.id]);
 
       if (graph.hasNode(person.id)) {
         graph.mergeNodeAttributes(person.id, {
@@ -191,11 +287,10 @@ export function NetworkGraph({
           type: "image",
           category: person.category,
         });
-        if (hint) {
-          graph.mergeNodeAttributes(person.id, { x: hint.x, y: hint.y });
+        if (pinned) {
+          graph.mergeNodeAttributes(person.id, { x: pos.x, y: pos.y });
         }
       } else {
-        const pos = hint ?? seeded;
         graph.addNode(person.id, {
           label: person.name,
           x: pos.x,
@@ -254,27 +349,39 @@ export function NetworkGraph({
       graph.addEdge(conn.source, conn.target, attrs);
     }
 
-    // Layout only when needed: first populate, or new nodes without drop hints
-    const needsLayout =
-      graph.order > 0 &&
-      (newlyAdded.length === 0
-        ? false
-        : newlyAdded.every((id) => !positionHintsRef.current[id])
-          ? newlyAdded.length > 0
-          : newlyAdded.some((id) => !positionHintsRef.current[id]));
+    const unpinnedNew = newlyAdded.filter((id) => {
+      const person = visiblePeople.find((p) => p.id === id);
+      return (
+        !hasCoords(person) && !hasCoords(positionHintsRef.current[id])
+      );
+    });
 
     const firstPopulate =
       newlyAdded.length > 0 && newlyAdded.length === graph.order;
 
-    if (graph.order > 0 && (firstPopulate || needsLayout)) {
-      // Don't pull drop-pinned nodes away — temporarily fix them
-      const pinned = newlyAdded.filter((id) => positionHintsRef.current[id]);
-      for (const id of pinned) {
+    const needsLayout =
+      graph.order > 0 &&
+      (firstPopulate
+        ? newlyAdded.some(
+            (id) =>
+              !hasCoords(visiblePeople.find((p) => p.id === id)) &&
+              !hasCoords(positionHintsRef.current[id]),
+          )
+        : unpinnedNew.length > 0);
+
+    if (needsLayout) {
+      const pinnedIds = graph.nodes().filter((id) => {
+        const person = visiblePeople.find((p) => p.id === id);
+        return (
+          hasCoords(person) || hasCoords(positionHintsRef.current[id])
+        );
+      });
+      for (const id of pinnedIds) {
         graph.setNodeAttribute(id, "fixed", true);
       }
       const sensible = forceAtlas2.inferSettings(graph);
       forceAtlas2.assign(graph, {
-        iterations: firstPopulate && pinned.length === 0 ? 60 : 25,
+        iterations: firstPopulate && pinnedIds.length === 0 ? 60 : 25,
         settings: {
           ...sensible,
           gravity: 1,
@@ -282,10 +389,18 @@ export function NetworkGraph({
           slowDown: 5,
         },
       });
-      for (const id of pinned) {
+      for (const id of pinnedIds) {
+        const person = visiblePeople.find((p) => p.id === id);
         const hint = positionHintsRef.current[id];
-        if (hint) {
-          graph.mergeNodeAttributes(id, { x: hint.x, y: hint.y, fixed: false });
+        const restore =
+          (hasCoords(person) && { x: person.x, y: person.y }) ||
+          (hasCoords(hint) ? hint : null);
+        if (restore) {
+          graph.mergeNodeAttributes(id, {
+            x: restore.x,
+            y: restore.y,
+            fixed: false,
+          });
         } else {
           graph.setNodeAttribute(id, "fixed", false);
         }
@@ -334,7 +449,9 @@ export function NetworkGraph({
   return (
     <div
       ref={wrapRef}
-      className={`graph-dropzone${dragOver ? " is-dragover" : ""}`}
+      className={`graph-dropzone${dragOver ? " is-dragover" : ""}${
+        draggingNode ? " is-nodedrag" : ""
+      }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

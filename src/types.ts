@@ -10,6 +10,9 @@ export interface Person {
   avatarUrl: string;
   profileUrl: string;
   platform: "twitch" | "twitter" | "x" | "unknown";
+  /** Persisted graph layout position. */
+  x?: number;
+  y?: number;
 }
 
 export interface Connection {

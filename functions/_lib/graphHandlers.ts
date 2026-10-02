@@ -6,7 +6,9 @@ import {
   isCategory,
   isConnection,
   isConnectionKind,
+  isFiniteCoord,
   isPerson,
+  withCoords,
   type Connection,
   type ConnectionKind,
   type GraphStore,
@@ -35,6 +37,8 @@ export async function handlePeoplePost(
     profileUrl:
       typeof body.profileUrl === "string" ? body.profileUrl.trim() : "",
     platform: body.platform,
+    x: body.x,
+    y: body.y,
   };
 
   if (
@@ -73,14 +77,18 @@ export async function handlePeoplePost(
     );
   }
 
-  const person: Person = {
-    id: allocatePersonId(candidate.name, data.people),
-    name: candidate.name,
-    category: candidate.category,
-    avatarUrl: candidate.avatarUrl,
-    profileUrl: candidate.profileUrl,
-    platform: candidate.platform,
-  };
+  const person: Person = withCoords(
+    {
+      id: allocatePersonId(candidate.name, data.people),
+      name: candidate.name,
+      category: candidate.category,
+      avatarUrl: candidate.avatarUrl,
+      profileUrl: candidate.profileUrl,
+      platform: candidate.platform,
+    },
+    draft.x,
+    draft.y,
+  );
 
   data.people.push(person);
   await store.set(data);
@@ -94,10 +102,34 @@ export async function handlePersonPatch(
   personId: string,
   env?: NotifyEnv,
 ): Promise<Response> {
-  const body = await readJsonBody<{ category?: unknown }>(request);
-  if (!body || !isCategory(body.category)) {
+  const body = await readJsonBody<{
+    category?: unknown;
+    x?: unknown;
+    y?: unknown;
+  }>(request);
+  if (!body) {
+    return jsonResponse({ ok: false, error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const hasCategory = body.category !== undefined;
+  const hasPosition =
+    body.x !== undefined || body.y !== undefined;
+
+  if (!hasCategory && !hasPosition) {
+    return jsonResponse(
+      { ok: false, error: "Provide category and/or x,y position." },
+      { status: 400 },
+    );
+  }
+  if (hasCategory && !isCategory(body.category)) {
     return jsonResponse(
       { ok: false, error: "Provide a valid category." },
+      { status: 400 },
+    );
+  }
+  if (hasPosition && !(isFiniteCoord(body.x) && isFiniteCoord(body.y))) {
+    return jsonResponse(
+      { ok: false, error: "Position requires finite x and y." },
       { status: 400 },
     );
   }
@@ -108,10 +140,19 @@ export async function handlePersonPatch(
     return jsonResponse({ ok: false, error: "Person not found." }, { status: 404 });
   }
 
-  const updated: Person = { ...data.people[idx]!, category: body.category };
+  let updated: Person = { ...data.people[idx]! };
+  if (hasCategory && isCategory(body.category)) {
+    updated = { ...updated, category: body.category };
+  }
+  if (hasPosition && isFiniteCoord(body.x) && isFiniteCoord(body.y)) {
+    updated = { ...updated, x: body.x, y: body.y };
+  }
   data.people[idx] = updated;
   await store.set(data);
-  await notifyGraphMutation(env);
+  // Position-only moves should not spam Discord #liste
+  if (hasCategory) {
+    await notifyGraphMutation(env);
+  }
   return jsonResponse({ ok: true, person: updated });
 }
 
