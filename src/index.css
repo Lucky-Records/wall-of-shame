@@ -69,10 +69,43 @@ select {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
-.sidebar-panels > .panel {
+.sidebar-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sidebar-col-tools {
+  overflow: auto;
+}
+
+.sidebar-col-people {
+  height: 100%;
+}
+
+.sidebar-col-people > .panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sidebar-col-people .people-list {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sidebar-panels .panel {
   min-width: 0;
 }
 
@@ -417,6 +450,15 @@ select:focus {
 
   .sidebar-panels {
     grid-template-columns: 1fr;
+  }
+
+  .sidebar-col-people > .panel {
+    flex: none;
+    max-height: 280px;
+  }
+
+  .sidebar-col-people .people-list {
+    max-height: 220px;
   }
 
   .stage {

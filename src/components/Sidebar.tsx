@@ -336,7 +336,8 @@ export function Sidebar({
   return (
     <>
       <div className="sidebar-panels">
-      <section className={`panel${!canEdit ? " panel-locked" : ""}`}>
+        <div className="sidebar-col sidebar-col-tools">
+<section className={`panel${!canEdit ? " panel-locked" : ""}`}>
         <h2>Person hinzufügen</h2>
         {!canEdit ? (
           <p className="lock-hint" role="note">
@@ -461,7 +462,68 @@ export function Sidebar({
         </p>
       </section>
 
-      <section className={`panel${!canEdit ? " panel-locked" : ""}`}>
+<section className="panel">
+        <h2>Verbindungen ({connections.length})</h2>
+        {connectionsSorted.length === 0 ? (
+          <p className="hint">Noch keine Verbindungen.</p>
+        ) : (
+          <ul className="connections-list">
+            {connectionsSorted.map((c) => {
+              const a = peopleById.get(c.source);
+              const b = peopleById.get(c.target);
+              const tag = formatConnectionTags(c.kinds, c.roles);
+              return (
+                <li key={c.id} className="connection-row">
+                  <div className="connection-meta">
+                    <span className="connection-names">
+                      <strong>{a?.name ?? c.source}</strong>
+                      <span className="connection-arrow" aria-hidden="true">
+                        →
+                      </span>
+                      <strong>{b?.name ?? c.target}</strong>
+                    </span>
+                    <span className="role-inline-pills">
+                      {c.kinds.map((k) => (
+                        <span
+                          key={`k-${k}`}
+                          className="cat-pill"
+                          style={{ background: CONNECTION_KIND_COLORS[k] }}
+                          title="Beziehung"
+                        >
+                          {CONNECTION_KIND_LABELS[k]}
+                        </span>
+                      ))}
+                      {c.roles.map((r) => (
+                        <span
+                          key={`r-${r}`}
+                          className="cat-pill cat-pill-role-tag"
+                          style={{ background: ROLE_COLORS[r] }}
+                          title="Rollen-Tag"
+                        >
+                          {ROLE_LABELS[r]}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className="btn icon-danger"
+                      aria-label={`Verbindung ${tag} löschen`}
+                      title="Verbindung löschen"
+                      onClick={() => onDeleteConnection(c.id)}
+                    >
+                      Löschen
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+<section className={`panel${!canEdit ? " panel-locked" : ""}`}>
         <h2>Verbindung ziehen</h2>
         {!canEdit ? (
           <p className="lock-hint" role="note">
@@ -549,7 +611,7 @@ export function Sidebar({
         </div>
       </section>
 
-      {canEdit && connectFrom ? (
+{canEdit && connectFrom ? (
         <section className="panel panel-danger">
           <h2>Ausgewählt</h2>
           <div className="profile-preview">
@@ -601,69 +663,10 @@ export function Sidebar({
           </p>
         </section>
       ) : null}
+        </div>
 
-      <section className="panel">
-        <h2>Verbindungen ({connections.length})</h2>
-        {connectionsSorted.length === 0 ? (
-          <p className="hint">Noch keine Verbindungen.</p>
-        ) : (
-          <ul className="connections-list">
-            {connectionsSorted.map((c) => {
-              const a = peopleById.get(c.source);
-              const b = peopleById.get(c.target);
-              const tag = formatConnectionTags(c.kinds, c.roles);
-              return (
-                <li key={c.id} className="connection-row">
-                  <div className="connection-meta">
-                    <span className="connection-names">
-                      <strong>{a?.name ?? c.source}</strong>
-                      <span className="connection-arrow" aria-hidden="true">
-                        →
-                      </span>
-                      <strong>{b?.name ?? c.target}</strong>
-                    </span>
-                    <span className="role-inline-pills">
-                      {c.kinds.map((k) => (
-                        <span
-                          key={`k-${k}`}
-                          className="cat-pill"
-                          style={{ background: CONNECTION_KIND_COLORS[k] }}
-                          title="Beziehung"
-                        >
-                          {CONNECTION_KIND_LABELS[k]}
-                        </span>
-                      ))}
-                      {c.roles.map((r) => (
-                        <span
-                          key={`r-${r}`}
-                          className="cat-pill cat-pill-role-tag"
-                          style={{ background: ROLE_COLORS[r] }}
-                          title="Rollen-Tag"
-                        >
-                          {ROLE_LABELS[r]}
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-                  {canEdit ? (
-                    <button
-                      type="button"
-                      className="btn icon-danger"
-                      aria-label={`Verbindung ${tag} löschen`}
-                      title="Verbindung löschen"
-                      onClick={() => onDeleteConnection(c.id)}
-                    >
-                      Löschen
-                    </button>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section className="panel">
+        <div className="sidebar-col sidebar-col-people">
+<section className="panel">
         <h2>Personen ({people.length})</h2>
         <ul className="people-list">
           {peopleSorted.map((p) => (
@@ -723,7 +726,7 @@ export function Sidebar({
           ))}
         </ul>
       </section>
-
+        </div>
       </div>
       {statusMessage ? <p className="status">{statusMessage}</p> : null}
     </>
