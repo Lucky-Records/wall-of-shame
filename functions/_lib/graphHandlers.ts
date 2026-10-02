@@ -4,13 +4,13 @@ import {
   allocatePersonId,
   DEFAULT_CONNECTION_KIND,
   isConnection,
-  isConnectionKind,
   isFiniteCoord,
   isPerson,
+  normalizeEdgeRoles,
+  normalizeKinds,
   normalizeRoles,
   withCoords,
   type Connection,
-  type ConnectionKind,
   type GraphStore,
   type Person,
   type Role,
@@ -185,12 +185,16 @@ export async function handleConnectionsPost(
     source?: unknown;
     target?: unknown;
     kind?: unknown;
+    kinds?: unknown;
+    roles?: unknown;
   }>(request);
   const source = typeof body?.source === "string" ? body.source : "";
   const target = typeof body?.target === "string" ? body.target : "";
-  const kind: ConnectionKind = isConnectionKind(body?.kind)
-    ? body.kind
-    : DEFAULT_CONNECTION_KIND;
+  let kinds = normalizeKinds(body?.kinds, body?.kind);
+  const roles = normalizeEdgeRoles(body?.roles);
+  if (kinds.length === 0 && roles.length === 0) {
+    kinds = [DEFAULT_CONNECTION_KIND];
+  }
 
   if (!source || !target) {
     return jsonResponse(
@@ -216,22 +220,43 @@ export async function handleConnectionsPost(
     );
   }
 
-  // Directed: same source→target→kind is a duplicate; reverse is allowed.
-  const exists = data.connections.some(
-    (c) => c.source === source && c.target === target && c.kind === kind,
+  // One directed edge A→B: merge tags if it already exists.
+  const existingIdx = data.connections.findIndex(
+    (c) => c.source === source && c.target === target,
   );
-  if (exists) {
-    return jsonResponse(
-      { ok: false, error: "That directed connection already exists." },
-      { status: 409 },
-    );
+  if (existingIdx >= 0) {
+    const prev = data.connections[existingIdx]!;
+    const mergedKinds = [...prev.kinds];
+    for (const k of kinds) {
+      if (!mergedKinds.includes(k)) mergedKinds.push(k);
+    }
+    const mergedRoles = [...prev.roles];
+    for (const r of roles) {
+      if (!mergedRoles.includes(r)) mergedRoles.push(r);
+    }
+    const updated: Connection = {
+      ...prev,
+      kinds: mergedKinds,
+      roles: mergedRoles,
+    };
+    if (!isConnection(updated)) {
+      return jsonResponse(
+        { ok: false, error: "Invalid connection tags." },
+        { status: 400 },
+      );
+    }
+    data.connections[existingIdx] = updated;
+    await store.set(data);
+    await notifyGraphMutation(env);
+    return jsonResponse({ ok: true, connection: updated, merged: true });
   }
 
   const connection: Connection = {
-    id: `c-${source}-${target}-${kind}-${Date.now()}`,
+    id: `c-${source}-${target}-${Date.now()}`,
     source,
     target,
-    kind,
+    kinds,
+    roles,
   };
   if (!isConnection(connection)) {
     return jsonResponse(

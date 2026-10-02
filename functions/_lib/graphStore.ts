@@ -27,7 +27,10 @@ export type Connection = {
   id: string;
   source: string;
   target: string;
-  kind: ConnectionKind;
+  /** Relationship types (multi). */
+  kinds: ConnectionKind[];
+  /** Optional person-role tags on the edge (multi). */
+  roles: Role[];
 };
 
 export type GraphData = {
@@ -61,7 +64,11 @@ export const DEFAULT_ROLE: Role = "User";
 export function cloneGraph(data: GraphData): GraphData {
   return {
     people: data.people.map((p) => ({ ...p, roles: [...p.roles] })),
-    connections: data.connections.map((c) => ({ ...c })),
+    connections: data.connections.map((c) => ({
+      ...c,
+      kinds: [...c.kinds],
+      roles: [...c.roles],
+    })),
   };
 }
 
@@ -155,19 +162,55 @@ export function withCoords(person: Person, x?: unknown, y?: unknown): Person {
   return next;
 }
 
-/** Strict check after migration (kind required). */
+export function normalizeKinds(raw: unknown, legacyKind?: unknown): ConnectionKind[] {
+  const out: ConnectionKind[] = [];
+  const seen = new Set<ConnectionKind>();
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (isConnectionKind(item) && !seen.has(item)) {
+        seen.add(item);
+        out.push(item);
+      }
+    }
+  }
+  if (out.length === 0 && isConnectionKind(legacyKind)) {
+    out.push(legacyKind);
+  }
+  return out;
+}
+
+export function normalizeEdgeRoles(raw: unknown): Role[] {
+  const out: Role[] = [];
+  const seen = new Set<Role>();
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const role = coerceRole(item);
+      if (role && !seen.has(role)) {
+        seen.add(role);
+        out.push(role);
+      }
+    }
+  }
+  return out;
+}
+
+/** Strict check after migration (kinds or roles required). */
 export function isConnection(value: unknown): value is Connection {
   if (!value || typeof value !== "object") return false;
   const c = value as Record<string, unknown>;
-  return (
-    typeof c.id === "string" &&
-    typeof c.source === "string" &&
-    typeof c.target === "string" &&
-    isConnectionKind(c.kind)
-  );
+  if (
+    typeof c.id !== "string" ||
+    typeof c.source !== "string" ||
+    typeof c.target !== "string"
+  ) {
+    return false;
+  }
+  const kinds = normalizeKinds(c.kinds, c.kind);
+  const roles = normalizeEdgeRoles(c.roles);
+  return kinds.length > 0 || roles.length > 0;
 }
 
-/** Accept legacy edges without kind; fill default Fren. */
+/** Accept legacy edges with single `kind`; migrate to kinds[] + roles[]. */
 export function normalizeConnection(value: unknown): Connection | null {
   if (!value || typeof value !== "object") return null;
   const c = value as Record<string, unknown>;
@@ -178,12 +221,45 @@ export function normalizeConnection(value: unknown): Connection | null {
   ) {
     return null;
   }
+  let kinds = normalizeKinds(c.kinds, c.kind);
+  const roles = normalizeEdgeRoles(c.roles);
+  if (kinds.length === 0 && roles.length === 0) {
+    kinds = [DEFAULT_CONNECTION_KIND];
+  }
   return {
     id: c.id,
     source: c.source,
     target: c.target,
-    kind: isConnectionKind(c.kind) ? c.kind : DEFAULT_CONNECTION_KIND,
+    kinds,
+    roles,
   };
+}
+
+/** Merge parallel directed edges (same A→B) into one with union of tags. */
+export function mergeDirectedConnections(list: Connection[]): Connection[] {
+  const map = new Map<string, Connection>();
+  for (const c of list) {
+    const key = `${c.source}\0${c.target}`;
+    const prev = map.get(key);
+    if (!prev) {
+      map.set(key, {
+        ...c,
+        kinds: [...c.kinds],
+        roles: [...c.roles],
+      });
+      continue;
+    }
+    const kinds = [...prev.kinds];
+    for (const k of c.kinds) {
+      if (!kinds.includes(k)) kinds.push(k);
+    }
+    const roles = [...prev.roles];
+    for (const r of c.roles) {
+      if (!roles.includes(r)) roles.push(r);
+    }
+    map.set(key, { ...prev, kinds, roles });
+  }
+  return [...map.values()];
 }
 
 export function normalizePerson(value: unknown): Person | null {
@@ -234,7 +310,7 @@ export function normalizeGraph(raw: unknown): GraphData {
       if (conn) connections.push(conn);
     }
   }
-  return { people, connections };
+  return { people, connections: mergeDirectedConnections(connections) };
 }
 
 export function slugify(name: string): string {

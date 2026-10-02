@@ -9,7 +9,7 @@ export type Role =
 /** @deprecated Use Role — kept as alias for gradual migration. */
 export type Category = Role;
 
-/** Relationship between two people (edge label). */
+/** Relationship between two people (edge tag). */
 export type ConnectionKind = "Mod" | "Fren" | "Streamerkollege";
 
 export interface Person {
@@ -29,7 +29,10 @@ export interface Connection {
   id: string;
   source: string;
   target: string;
-  kind: ConnectionKind;
+  /** Relationship types — multi-select (Mod / Fren / Streamerkollege). */
+  kinds: ConnectionKind[];
+  /** Optional person-role tags on the edge — multi-select. */
+  roles: Role[];
 }
 
 export interface GraphPosition {
@@ -132,5 +135,33 @@ export const CONNECTION_KIND_COLORS: Record<ConnectionKind, string> = {
   Fren: "#fbbf24",
   Streamerkollege: "#a78bfa",
 };
+
+export function formatConnectionTags(
+  kinds: ConnectionKind[],
+  roles: Role[],
+): string {
+  const parts = [
+    ...kinds.map((k) => CONNECTION_KIND_LABELS[k]),
+    ...roles.map((r) => ROLE_LABELS[r]),
+  ];
+  return parts.length ? parts.join(" · ") : "—";
+}
+
+export function connectionEdgeColor(
+  kinds: ConnectionKind[],
+  roles: Role[],
+): string {
+  if (kinds.length) return CONNECTION_KIND_COLORS[kinds[0]!];
+  if (roles.length) return ROLE_COLORS[primaryRole(roles)];
+  return "#94a3b8";
+}
+
+export function toggleInList<T>(list: T[], item: T, minOne = false): T[] {
+  if (list.includes(item)) {
+    if (minOne && list.length === 1) return list;
+    return list.filter((x) => x !== item);
+  }
+  return [...list, item];
+}
 
 export const PERSON_DRAG_MIME = "application/x-wos-person";

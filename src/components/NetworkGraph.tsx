@@ -19,16 +19,14 @@ import type {
   Role,
 } from "../types";
 import {
-  CONNECTION_KIND_COLORS,
-  CONNECTION_KIND_LABELS,
-  DEFAULT_CONNECTION_KIND,
+  connectionEdgeColor,
+  formatConnectionTags,
   PERSON_DRAG_MIME,
   personMatchesRoles,
   primaryRole,
   ROLE_COLORS,
   ROLE_LABELS,
 } from "../types";
-import type { ConnectionKind } from "../types";
 
 interface NetworkGraphProps {
   people: Person[];
@@ -204,7 +202,8 @@ export function NetworkGraph({
 
     const sigma = new Sigma(graph, containerRef.current, {
       allowInvalidContainer: true,
-      renderLabels: true,
+      // Name + roles rendered in HTML overlay under the avatar
+      renderLabels: false,
       renderEdgeLabels: true,
       labelColor: { color: "#e2e8f0" },
       labelSize: 12,
@@ -386,15 +385,14 @@ export function NetworkGraph({
     }
 
     function edgeAttrs(conn: Connection) {
-      const kind: ConnectionKind =
-        conn.kind in CONNECTION_KIND_LABELS
-          ? conn.kind
-          : DEFAULT_CONNECTION_KIND;
+      const kinds = Array.isArray(conn.kinds) ? conn.kinds : [];
+      const roles = Array.isArray(conn.roles) ? conn.roles : [];
       return {
         size: 2.4,
-        color: CONNECTION_KIND_COLORS[kind],
-        label: CONNECTION_KIND_LABELS[kind],
-        kind,
+        color: connectionEdgeColor(kinds, roles),
+        label: formatConnectionTags(kinds, roles),
+        kinds,
+        roles,
         type: "straight" as const,
       };
     }
@@ -554,21 +552,24 @@ export function NetworkGraph({
         {badges.map((b) => (
           <div
             key={b.id}
-            className="node-role-badge-wrap"
+            className="node-label-stack"
             style={{
-              transform: `translate(${b.x}px, ${b.y + b.size + 10}px) translate(-50%, 0)`,
+              transform: `translate(${b.x}px, ${b.y + b.size + 6}px) translate(-50%, 0)`,
             }}
           >
-            {b.roles.map((role) => (
-              <span
-                key={role}
-                className="node-role-badge"
-                style={{ background: ROLE_COLORS[role] }}
-                title={ROLE_LABELS[role]}
-              >
-                {ROLE_LABELS[role]}
-              </span>
-            ))}
+            <div className="node-name">{b.name}</div>
+            <div className="node-role-badge-wrap">
+              {b.roles.map((role) => (
+                <span
+                  key={role}
+                  className="node-role-badge"
+                  style={{ background: ROLE_COLORS[role] }}
+                  title={ROLE_LABELS[role]}
+                >
+                  {ROLE_LABELS[role]}
+                </span>
+              ))}
+            </div>
           </div>
         ))}
       </div>

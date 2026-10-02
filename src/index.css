@@ -837,3 +837,97 @@ select:disabled {
   display: flex;
   flex-direction: column;
 }
+
+/* Checkbox multi-select for roles / connection tags */
+.role-multi-hint {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  color: #94a3b8;
+}
+
+.role-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.role-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #0d1426;
+  color: var(--muted);
+  padding: 0.35rem 0.7rem 0.35rem 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s ease;
+  user-select: none;
+}
+
+.role-check input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.role-check:hover {
+  color: var(--text);
+  border-color: #475569;
+}
+
+.role-check.on {
+  color: var(--text);
+  background: #1a2440;
+}
+
+.role-fieldset:disabled .role-check {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cat-pill-role-tag {
+  outline: 1px dashed rgba(255, 255, 255, 0.35);
+  outline-offset: 1px;
+}
+
+/* Name above roles on the board */
+.node-label-stack {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 160px;
+  pointer-events: none;
+}
+
+.node-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-role-badge-wrap {
+  position: relative;
+  top: auto;
+  left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  justify-content: center;
+  max-width: 160px;
+}

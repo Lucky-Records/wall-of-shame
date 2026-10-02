@@ -11,10 +11,12 @@ import {
   ALL_ROLES,
   CONNECTION_KIND_COLORS,
   CONNECTION_KIND_LABELS,
+  formatConnectionTags,
   formatRoles,
   PERSON_DRAG_MIME,
   ROLE_COLORS,
   ROLE_LABELS,
+  toggleInList,
 } from "../types";
 import {
   defaultRolesForPlatform,
@@ -25,7 +27,8 @@ interface SidebarProps {
   people: Person[];
   connections: Connection[];
   connectFromId: string | null;
-  connectKind: ConnectionKind;
+  connectKinds: ConnectionKind[];
+  connectRoles: Role[];
   canEdit: boolean;
   previewClearToken?: number;
   onAddPerson: (person: PersonDraft) => void;
@@ -33,11 +36,13 @@ interface SidebarProps {
   onDeletePerson: (personId: string) => void;
   onDeleteConnection: (connectionId: string) => void;
   onStartConnect: (personId: string | null) => void;
-  onConnectKindChange: (kind: ConnectionKind) => void;
+  onConnectKindsChange: (kinds: ConnectionKind[]) => void;
+  onConnectRolesChange: (roles: Role[]) => void;
   onCreateConnection: (
     sourceId: string,
     targetId: string,
-    kind: ConnectionKind,
+    kinds: ConnectionKind[],
+    roles: Role[],
   ) => void;
   statusMessage: string | null;
 }
@@ -53,37 +58,35 @@ function platformLabel(platform: Person["platform"]): string {
   return "Profil";
 }
 
-function toggleRole(roles: Role[], role: Role): Role[] {
-  if (roles.includes(role)) {
-    if (roles.length === 1) return roles;
-    return roles.filter((r) => r !== role);
-  }
-  return [...roles, role];
-}
-
 function RoleMultiSelect({
   value,
   onChange,
   disabled,
   legend = "Funktionen (Mehrfachauswahl)",
+  allowEmpty = false,
+  hint = "Mehrere Häkchen möglich",
 }: {
   value: Role[];
   onChange: (roles: Role[]) => void;
   disabled?: boolean;
   legend?: string;
+  /** When true, all roles can be unchecked (edge tags). */
+  allowEmpty?: boolean;
+  hint?: string;
 }) {
   return (
     <fieldset className="role-fieldset" disabled={disabled}>
       <legend>{legend}</legend>
-      <div className="role-chips" role="group" aria-label={legend}>
+      <p className="role-multi-hint">{hint}</p>
+      <div className="role-checks" role="group" aria-label={legend}>
         {ALL_ROLES.map((r) => {
           const selected = value.includes(r);
+          const inputId = `role-${legend.replace(/\W+/g, "-").toLowerCase()}-${r}`;
           return (
-            <button
+            <label
               key={r}
-              type="button"
-              aria-pressed={selected}
-              className={`role-chip${selected ? " on" : ""}`}
+              htmlFor={inputId}
+              className={`role-check${selected ? " on" : ""}`}
               style={
                 selected
                   ? {
@@ -92,15 +95,74 @@ function RoleMultiSelect({
                     }
                   : undefined
               }
-              onClick={() => onChange(toggleRole(value, r))}
-              disabled={disabled}
             >
+              <input
+                id={inputId}
+                type="checkbox"
+                checked={selected}
+                disabled={disabled}
+                onChange={() => onChange(toggleInList(value, r, !allowEmpty))}
+              />
               <span
                 className="swatch"
                 style={{ background: ROLE_COLORS[r] }}
+                aria-hidden="true"
               />
-              {ROLE_LABELS[r]}
-            </button>
+              <span>{ROLE_LABELS[r]}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+
+function KindMultiSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: ConnectionKind[];
+  onChange: (kinds: ConnectionKind[]) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <fieldset className="role-fieldset" disabled={disabled}>
+      <legend>Beziehungstypen (Mehrfachauswahl)</legend>
+      <p className="role-multi-hint">z.B. Mod + Fren gleichzeitig</p>
+      <div className="role-checks" role="group" aria-label="Beziehungstypen">
+        {ALL_CONNECTION_KINDS.map((k) => {
+          const selected = value.includes(k);
+          const inputId = `conn-kind-${k}`;
+          return (
+            <label
+              key={k}
+              htmlFor={inputId}
+              className={`role-check${selected ? " on" : ""}`}
+              style={
+                selected
+                  ? {
+                      borderColor: CONNECTION_KIND_COLORS[k],
+                      boxShadow: `0 0 0 2px ${CONNECTION_KIND_COLORS[k]}33`,
+                    }
+                  : undefined
+              }
+            >
+              <input
+                id={inputId}
+                type="checkbox"
+                checked={selected}
+                disabled={disabled}
+                onChange={() => onChange(toggleInList(value, k))}
+              />
+              <span
+                className="swatch"
+                style={{ background: CONNECTION_KIND_COLORS[k] }}
+                aria-hidden="true"
+              />
+              <span>{CONNECTION_KIND_LABELS[k]}</span>
+            </label>
           );
         })}
       </div>
@@ -112,7 +174,8 @@ export function Sidebar({
   people,
   connections,
   connectFromId,
-  connectKind,
+  connectKinds,
+  connectRoles,
   canEdit,
   previewClearToken = 0,
   onAddPerson,
@@ -120,7 +183,8 @@ export function Sidebar({
   onDeletePerson,
   onDeleteConnection,
   onStartConnect,
-  onConnectKindChange,
+  onConnectKindsChange,
+  onConnectRolesChange,
   onCreateConnection,
   statusMessage,
 }: SidebarProps) {
@@ -253,9 +317,21 @@ export function Sidebar({
   function handleConnect(e: FormEvent) {
     e.preventDefault();
     if (!canEdit || !connectFromId || !connectTarget) return;
-    onCreateConnection(connectFromId, connectTarget, connectKind);
+    if (!connectKinds.length && !connectRoles.length) return;
+    onCreateConnection(
+      connectFromId,
+      connectTarget,
+      connectKinds,
+      connectRoles,
+    );
     setConnectTarget("");
   }
+
+  const connectTagSummary = formatConnectionTags(connectKinds, connectRoles);
+  const canSubmitConnect =
+    canEdit &&
+    !!connectTarget &&
+    (connectKinds.length > 0 || connectRoles.length > 0);
 
   return (
     <>
@@ -392,48 +468,24 @@ export function Sidebar({
           </p>
         ) : (
           <p className="hint">
-            Verbindungstyp wählen (Mod / Fren / Streamerkollege), dann Von → Nach
-            oder zwei Knoten im Graph. Richtung: Von → Nach (Pfeil).
+            Beziehungstypen und/oder Rollen-Tags wählen (Mehrfachauswahl), dann
+            Von → Nach oder zwei Knoten im Graph. Richtung: Von → Nach (Pfeil).
           </p>
         )}
         <div className="stack">
-          <fieldset className="role-fieldset">
-            <legend>Verbindungstyp</legend>
-            <div
-              className="role-chips"
-              role="radiogroup"
-              aria-label="Verbindungstyp"
-            >
-              {ALL_CONNECTION_KINDS.map((k) => {
-                const selected = connectKind === k;
-                return (
-                  <button
-                    key={k}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    className={`role-chip${selected ? " on" : ""}`}
-                    style={
-                      selected
-                        ? {
-                            borderColor: CONNECTION_KIND_COLORS[k],
-                            boxShadow: `0 0 0 2px ${CONNECTION_KIND_COLORS[k]}33`,
-                          }
-                        : undefined
-                    }
-                    onClick={() => onConnectKindChange(k)}
-                    disabled={!canEdit}
-                  >
-                    <span
-                      className="swatch"
-                      style={{ background: CONNECTION_KIND_COLORS[k] }}
-                    />
-                    {CONNECTION_KIND_LABELS[k]}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
+          <KindMultiSelect
+            value={connectKinds}
+            onChange={onConnectKindsChange}
+            disabled={!canEdit}
+          />
+          <RoleMultiSelect
+            value={connectRoles}
+            onChange={onConnectRolesChange}
+            disabled={!canEdit}
+            allowEmpty
+            legend="Rollen-Tags an der Kante (Mehrfachauswahl)"
+            hint="Optional — z.B. Ex-Mod + gebannt neben Beziehungstypen"
+          />
 
           <label>
             Von
@@ -474,9 +526,9 @@ export function Sidebar({
                 <button
                   type="submit"
                   className="btn primary"
-                  disabled={!canEdit || !connectTarget}
+                  disabled={!canSubmitConnect}
                 >
-                  Als {CONNECTION_KIND_LABELS[connectKind]} verbinden (→)
+                  Als {connectTagSummary} verbinden (→)
                 </button>
                 {canEdit && connectFrom ? (
                   <button
@@ -558,7 +610,7 @@ export function Sidebar({
             {connectionsSorted.map((c) => {
               const a = peopleById.get(c.source);
               const b = peopleById.get(c.target);
-              const kind = c.kind;
+              const tag = formatConnectionTags(c.kinds, c.roles);
               return (
                 <li key={c.id} className="connection-row">
                   <div className="connection-meta">
@@ -569,18 +621,34 @@ export function Sidebar({
                       </span>
                       <strong>{b?.name ?? c.target}</strong>
                     </span>
-                    <span
-                      className="cat-pill"
-                      style={{ background: CONNECTION_KIND_COLORS[kind] }}
-                    >
-                      {CONNECTION_KIND_LABELS[kind]}
+                    <span className="role-inline-pills">
+                      {c.kinds.map((k) => (
+                        <span
+                          key={`k-${k}`}
+                          className="cat-pill"
+                          style={{ background: CONNECTION_KIND_COLORS[k] }}
+                          title="Beziehung"
+                        >
+                          {CONNECTION_KIND_LABELS[k]}
+                        </span>
+                      ))}
+                      {c.roles.map((r) => (
+                        <span
+                          key={`r-${r}`}
+                          className="cat-pill cat-pill-role-tag"
+                          style={{ background: ROLE_COLORS[r] }}
+                          title="Rollen-Tag"
+                        >
+                          {ROLE_LABELS[r]}
+                        </span>
+                      ))}
                     </span>
                   </div>
                   {canEdit ? (
                     <button
                       type="button"
                       className="btn icon-danger"
-                      aria-label={`Verbindung ${CONNECTION_KIND_LABELS[kind]} löschen`}
+                      aria-label={`Verbindung ${tag} löschen`}
                       title="Verbindung löschen"
                       onClick={() => onDeleteConnection(c.id)}
                     >

@@ -82,13 +82,14 @@ export async function apiUpdatePosition(
 export async function apiAddConnection(
   source: string,
   target: string,
-  kind: ConnectionKind,
+  kinds: ConnectionKind[],
+  roles: Role[] = [],
 ): Promise<Connection> {
   const res = await fetch("/api/graph/connections", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source, target, kind }),
+    body: JSON.stringify({ source, target, kinds, roles }),
   });
   const data = (await res.json()) as {
     ok?: boolean;

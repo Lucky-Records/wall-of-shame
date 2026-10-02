@@ -68,13 +68,13 @@ export const MOCK_PEOPLE: Person[] = [
 ];
 
 export const MOCK_CONNECTIONS: Connection[] = [
-  { id: "c1", source: "lucky", target: "pixelpulse", kind: "Mod" },
-  { id: "c2", source: "lucky", target: "orbitmod", kind: "Mod" },
-  { id: "c3", source: "lucky", target: "neonfox", kind: "Streamerkollege" },
-  { id: "c4", source: "neonfox", target: "raidwave", kind: "Streamerkollege" },
-  { id: "c5", source: "pixelpulse", target: "bubbleskip", kind: "Fren" },
-  { id: "c6", source: "orbitmod", target: "glownote", kind: "Fren" },
-  { id: "c7", source: "bubbleskip", target: "chathaven", kind: "Fren" },
-  { id: "c8", source: "raidwave", target: "chathaven", kind: "Fren" },
-  { id: "c9", source: "glownote", target: "lucky", kind: "Fren" },
+  { id: "c1", source: "lucky", target: "pixelpulse", kinds: ["Mod"], roles: [] },
+  { id: "c2", source: "lucky", target: "orbitmod", kinds: ["Mod"], roles: [] },
+  { id: "c3", source: "lucky", target: "neonfox", kinds: ["Streamerkollege", "Fren"], roles: ["Streamer"] },
+  { id: "c4", source: "neonfox", target: "raidwave", kinds: ["Streamerkollege"], roles: [] },
+  { id: "c5", source: "pixelpulse", target: "bubbleskip", kinds: ["Fren"], roles: ["User"] },
+  { id: "c6", source: "orbitmod", target: "glownote", kinds: ["Fren"], roles: [] },
+  { id: "c7", source: "bubbleskip", target: "chathaven", kinds: ["Fren"], roles: ["gebannt"] },
+  { id: "c8", source: "raidwave", target: "chathaven", kinds: ["Fren"], roles: [] },
+  { id: "c9", source: "glownote", target: "lucky", kinds: ["Fren"], roles: [] },
 ];

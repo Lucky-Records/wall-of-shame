@@ -21,8 +21,8 @@ import type {
 } from "./types";
 import {
   ALL_ROLES,
-  CONNECTION_KIND_LABELS,
   DEFAULT_CONNECTION_KIND,
+  formatConnectionTags,
   formatRoles,
 } from "./types";
 
@@ -47,9 +47,10 @@ export default function App() {
     () => new Set(ALL_ROLES),
   );
   const [connectFromId, setConnectFromId] = useState<string | null>(null);
-  const [connectKind, setConnectKind] = useState<ConnectionKind>(
+  const [connectKinds, setConnectKinds] = useState<ConnectionKind[]>([
     DEFAULT_CONNECTION_KIND,
-  );
+  ]);
+  const [connectRoles, setConnectRoles] = useState<Role[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [positionHints, setPositionHints] = useState<
     Record<string, GraphPosition>
@@ -152,6 +153,11 @@ export default function App() {
         flash("Mindestens eine Rolle ist nötig.");
         return;
       }
+      const previous = people.find((p) => p.id === personId);
+      // Optimistic: keep multi-select responsive
+      setPeople((prev) =>
+        prev.map((p) => (p.id === personId ? { ...p, roles: [...roles] } : p)),
+      );
       try {
         const person = await apiUpdateRoles(personId, roles);
         setPeople((prev) =>
@@ -159,6 +165,11 @@ export default function App() {
         );
         flash(`${person.name} → ${formatRoles(roles)} aktualisiert.`);
       } catch (err) {
+        if (previous) {
+          setPeople((prev) =>
+            prev.map((p) => (p.id === previous.id ? previous : p)),
+          );
+        }
         flash(
           err instanceof Error
             ? err.message
@@ -166,7 +177,7 @@ export default function App() {
         );
       }
     },
-    [flash],
+    [people, flash],
   );
 
   const handleDeletePerson = useCallback(
@@ -204,27 +215,39 @@ export default function App() {
   );
 
   const handleCreateConnection = useCallback(
-    async (sourceId: string, targetId: string, kind: ConnectionKind) => {
+    async (
+      sourceId: string,
+      targetId: string,
+      kinds: ConnectionKind[],
+      roles: Role[],
+    ) => {
       if (sourceId === targetId) {
         flash("Eine Person kann nicht mit sich selbst verbunden werden.");
         return;
       }
-      const exists = connections.some(
-        (c) =>
-          c.source === sourceId && c.target === targetId && c.kind === kind,
-      );
-      if (exists) {
-        flash("Diese gerichtete Verbindung gibt es schon.");
+      if (!kinds.length && !roles.length) {
+        flash("Mindestens einen Verbindungstyp oder ein Rollen-Tag wählen.");
         return;
       }
       try {
-        const connection = await apiAddConnection(sourceId, targetId, kind);
-        setConnections((prev) => [...prev, connection]);
+        const connection = await apiAddConnection(
+          sourceId,
+          targetId,
+          kinds,
+          roles,
+        );
+        setConnections((prev) => {
+          const without = prev.filter(
+            (c) =>
+              !(c.source === connection.source && c.target === connection.target),
+          );
+          return [...without, connection];
+        });
         setConnectFromId(null);
         const a = people.find((p) => p.id === sourceId)?.name ?? sourceId;
         const b = people.find((p) => p.id === targetId)?.name ?? targetId;
         flash(
-          `${a} → ${b} · ${CONNECTION_KIND_LABELS[connection.kind]}`,
+          `${a} → ${b} · ${formatConnectionTags(connection.kinds, connection.roles)}`,
         );
       } catch (err) {
         flash(
@@ -234,7 +257,7 @@ export default function App() {
         );
       }
     },
-    [connections, people, flash],
+    [people, flash],
   );
 
   const handleDeleteConnection = useCallback(
@@ -243,15 +266,16 @@ export default function App() {
       if (!conn) return;
       const a = people.find((p) => p.id === conn.source)?.name ?? conn.source;
       const b = people.find((p) => p.id === conn.target)?.name ?? conn.target;
+      const tag = formatConnectionTags(conn.kinds, conn.roles);
       const ok = window.confirm(
-        `Verbindung „${CONNECTION_KIND_LABELS[conn.kind]}“ ${a} → ${b} löschen?`,
+        `Verbindung „${tag}“ ${a} → ${b} löschen?`,
       );
       if (!ok) return;
       try {
         const removed = await apiDeleteConnection(connectionId);
         setConnections((prev) => prev.filter((c) => c.id !== removed.id));
         flash(
-          `${a} → ${b} · ${CONNECTION_KIND_LABELS[removed.kind]} entfernt.`,
+          `${a} → ${b} · ${formatConnectionTags(removed.kinds, removed.roles)} entfernt.`,
         );
       } catch (err) {
         flash(
@@ -274,9 +298,14 @@ export default function App() {
         setConnectFromId(null);
         return;
       }
-      void handleCreateConnection(connectFromId, personId, connectKind);
+      void handleCreateConnection(
+        connectFromId,
+        personId,
+        connectKinds,
+        connectRoles,
+      );
     },
-    [connectFromId, connectKind, handleCreateConnection],
+    [connectFromId, connectKinds, connectRoles, handleCreateConnection],
   );
 
   const handlePersonDrop = useCallback(
@@ -315,7 +344,8 @@ export default function App() {
           people={people}
           connections={connections}
           connectFromId={connectFromId}
-          connectKind={connectKind}
+          connectKinds={connectKinds}
+          connectRoles={connectRoles}
           canEdit={true}
           previewClearToken={previewClearToken}
           onAddPerson={(draft) => {
@@ -331,9 +361,10 @@ export default function App() {
             void handleDeleteConnection(id);
           }}
           onStartConnect={setConnectFromId}
-          onConnectKindChange={setConnectKind}
-          onCreateConnection={(source, target, kind) => {
-            void handleCreateConnection(source, target, kind);
+          onConnectKindsChange={setConnectKinds}
+          onConnectRolesChange={setConnectRoles}
+          onCreateConnection={(source, target, kinds, roles) => {
+            void handleCreateConnection(source, target, kinds, roles);
           }}
           statusMessage={statusMessage}
         />
