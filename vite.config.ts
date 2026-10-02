@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
         DISCORD_EDITOR_ROLE_ID: env.DISCORD_EDITOR_ROLE_ID,
         SESSION_SECRET: env.SESSION_SECRET,
         APP_ORIGIN: env.APP_ORIGIN,
+        WALL_OF_SHAME_NOTIFY_URL: env.WALL_OF_SHAME_NOTIFY_URL,
       }),
     ],
   };

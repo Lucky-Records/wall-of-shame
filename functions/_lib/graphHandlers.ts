@@ -1,4 +1,5 @@
 import { jsonResponse, readJsonBody } from "./http.ts";
+import { notifyGraphMutation, type NotifyEnv } from "./notify.ts";
 import {
   allocatePersonId,
   DEFAULT_CONNECTION_KIND,
@@ -20,6 +21,7 @@ export async function handleGraphGet(store: GraphStore): Promise<Response> {
 export async function handlePeoplePost(
   request: Request,
   store: GraphStore,
+  env?: NotifyEnv,
 ): Promise<Response> {
   const body = await readJsonBody<Partial<Person>>(request);
   if (!body) {
@@ -82,6 +84,7 @@ export async function handlePeoplePost(
 
   data.people.push(person);
   await store.set(data);
+  await notifyGraphMutation(env);
   return jsonResponse({ ok: true, person }, { status: 201 });
 }
 
@@ -89,6 +92,7 @@ export async function handlePersonPatch(
   request: Request,
   store: GraphStore,
   personId: string,
+  env?: NotifyEnv,
 ): Promise<Response> {
   const body = await readJsonBody<{ category?: unknown }>(request);
   if (!body || !isCategory(body.category)) {
@@ -107,12 +111,14 @@ export async function handlePersonPatch(
   const updated: Person = { ...data.people[idx]!, category: body.category };
   data.people[idx] = updated;
   await store.set(data);
+  await notifyGraphMutation(env);
   return jsonResponse({ ok: true, person: updated });
 }
 
 export async function handleConnectionsPost(
   request: Request,
   store: GraphStore,
+  env?: NotifyEnv,
 ): Promise<Response> {
   const body = await readJsonBody<{
     source?: unknown;
@@ -176,6 +182,7 @@ export async function handleConnectionsPost(
 
   data.connections.push(connection);
   await store.set(data);
+  await notifyGraphMutation(env);
   return jsonResponse({ ok: true, connection }, { status: 201 });
 }
 
@@ -183,6 +190,7 @@ export async function handleConnectionDelete(
   request: Request,
   store: GraphStore,
   connectionId: string,
+  env?: NotifyEnv,
 ): Promise<Response> {
   void request;
   const data = await store.get();
@@ -197,6 +205,7 @@ export async function handleConnectionDelete(
   const removed = data.connections[idx]!;
   data.connections.splice(idx, 1);
   await store.set(data);
+  await notifyGraphMutation(env);
   return jsonResponse({ ok: true, connection: removed });
 }
 
@@ -204,6 +213,7 @@ export async function handlePersonDelete(
   request: Request,
   store: GraphStore,
   personId: string,
+  env?: NotifyEnv,
 ): Promise<Response> {
   void request;
   const data = await store.get();
@@ -218,5 +228,6 @@ export async function handlePersonDelete(
     (c) => c.source !== personId && c.target !== personId,
   );
   await store.set(data);
+  await notifyGraphMutation(env);
   return jsonResponse({ ok: true, person: removed });
 }

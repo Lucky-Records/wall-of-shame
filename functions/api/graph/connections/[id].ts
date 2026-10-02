@@ -13,5 +13,6 @@ export async function onRequestDelete(context: {
     context.request,
     getCloudflareGraphStore(context.env),
     decodeURIComponent(context.params.id),
+    context.env,
   );
 }

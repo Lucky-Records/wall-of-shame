@@ -16,6 +16,7 @@ export async function onRequestPatch(context: {
     context.request,
     getCloudflareGraphStore(context.env),
     context.params.id,
+    context.env,
   );
 }
 
@@ -28,5 +29,6 @@ export async function onRequestDelete(context: {
     context.request,
     getCloudflareGraphStore(context.env),
     context.params.id,
+    context.env,
   );
 }

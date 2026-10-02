@@ -43,6 +43,7 @@ cp .env.example .env
 | `TWITCH_CLIENT_ID` | Optional — only used with Helix when Secret is also set |
 | `TWITCH_CLIENT_SECRET` | Optional Helix Client Secret (server only). **Not required** for public boards |
 | `APP_ORIGIN` | Optional public origin (local/prod) |
+| `WALL_OF_SHAME_NOTIFY_URL` | Optional Netzy webhook — `POST {}` after every graph mutation so #liste can refresh |
 
 Discord OAuth variables are optional/legacy and unused for edit gating.
 
@@ -61,6 +62,18 @@ the public fallback is used.
 
 Production mutations persist in KV namespace binding `GRAPH_KV` (see `wrangler.toml`).
 Redeploy after changing bindings so Pages Functions pick them up.
+
+
+## Discord #liste refresh (Netzy)
+
+After each successful graph write (add/delete person, change category, add/delete
+connection), Pages Functions optionally `POST {}` to `WALL_OF_SHAME_NOTIFY_URL`.
+
+1. Point that URL at the Netzy routine that screenshots the public board and
+   updates Discord channel `#liste` (delete previous webhook message, post new image).
+2. Set it as a **Cloudflare Pages secret** on the `wall-of-shame` project:
+   `WALL_OF_SHAME_NOTIFY_URL=<netzy-webhook-url>`
+3. If unset, mutations still work — notify is a no-op.
 
 ## Scripts
 

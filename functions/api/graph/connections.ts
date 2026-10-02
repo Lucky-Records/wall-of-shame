@@ -11,5 +11,6 @@ export async function onRequestPost(context: {
   return handleConnectionsPost(
     context.request,
     getCloudflareGraphStore(context.env),
+    context.env,
   );
 }

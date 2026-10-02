@@ -34,6 +34,7 @@ import { jsonResponse } from "./functions/_lib/http.ts";
 type ApiEnv = DiscordEnv & {
   TWITCH_CLIENT_ID?: string;
   TWITCH_CLIENT_SECRET?: string;
+  WALL_OF_SHAME_NOTIFY_URL?: string;
 };
 
 const rootDir = dirname(fileURLToPath(import.meta.url));
@@ -244,26 +245,26 @@ function attachApi(
       ) {
         response = await handleGraphGet(store);
       } else if (pathname === "/api/graph/people" && method === "POST") {
-        response = await handlePeoplePost(request, store);
+        response = await handlePeoplePost(request, store, env);
       } else if (pathname === "/api/graph/connections" && method === "POST") {
-        response = await handleConnectionsPost(request, store);
+        response = await handleConnectionsPost(request, store, env);
       } else if (method === "DELETE") {
         const connMatch = pathname.match(/^\/api\/graph\/connections\/([^/]+)$/);
         if (connMatch) {
           const id = decodeURIComponent(connMatch[1]!);
-          response = await handleConnectionDelete(request, store, id);
+          response = await handleConnectionDelete(request, store, id, env);
         } else {
           const match = pathname.match(/^\/api\/graph\/people\/([^/]+)$/);
           if (match) {
             const id = decodeURIComponent(match[1]!);
-            response = await handlePersonDelete(request, store, id);
+            response = await handlePersonDelete(request, store, id, env);
           }
         }
       } else if (method === "PATCH") {
         const match = pathname.match(/^\/api\/graph\/people\/([^/]+)$/);
         if (match) {
           const id = decodeURIComponent(match[1]!);
-          response = await handlePersonPatch(request, store, id);
+          response = await handlePersonPatch(request, store, id, env);
         }
       }
 

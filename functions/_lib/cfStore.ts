@@ -17,6 +17,8 @@ export type KvLike = {
 
 export type GraphEnv = {
   GRAPH_KV?: KvLike;
+  /** Optional Netzy / Discord #liste refresh webhook (POST {}). */
+  WALL_OF_SHAME_NOTIFY_URL?: string;
 };
 
 const GRAPH_KEY = "graph";

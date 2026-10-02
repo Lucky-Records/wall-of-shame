@@ -11,5 +11,6 @@ export async function onRequestPost(context: {
   return handlePeoplePost(
     context.request,
     getCloudflareGraphStore(context.env),
+    context.env,
   );
 }
