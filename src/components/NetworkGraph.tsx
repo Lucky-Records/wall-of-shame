@@ -15,10 +15,6 @@ const ARROW_HEAD = {
   lengthToThicknessRatio: 3.125,
   widenessToThicknessRatio: 2.5,
 } as const;
-const StraightArrowProgram = createEdgeArrowProgram(ARROW_HEAD);
-const CurvedArrowProgram = createEdgeCurveProgram({
-  arrowHead: { extremity: "target", ...ARROW_HEAD },
-});
 import type { Settings } from "sigma/settings";
 import type {
   Connection,
@@ -244,8 +240,9 @@ function drawAttachedNodeLabel(
 }
 
 /**
- * Paint the strand tag ON the connection curve (midpoint + tangent).
- * No sideways offset — label sits centered on the visible line.
+ * Paint the strand tag ON its connection curve (Bezier midpoint, middle baseline).
+ * Used for both straight and curved edge programs so every kind/role label
+ * (Fren, Mod, Streamerkollege, Headmod, …) sits on its own parallel strand.
  */
 function drawColoredEdgeLabel(
   context: CanvasRenderingContext2D,
@@ -299,10 +296,12 @@ function drawColoredEdgeLabel(
   const diff = Math.sqrt(diffX * diffX + diffY * diffY);
   if (!Number.isFinite(diff) || diff < 1) return;
 
-  // Same quadratic control point as @sigma/edge-curve (on the stroke)
-  const orientation = ltr ? 1 : -1;
-  const anchorX = centerX + diffY * curvature * orientation;
-  const anchorY = centerY - diffX * curvature * orientation;
+  // Match @sigma/edge-curve shader control point:
+  //   cpB = mid + (-diffY, diffX) * curvature
+  // After optional LTR swap, negate curvature so the visual strand still matches.
+  const signedCurvature = ltr ? curvature : -curvature;
+  const anchorX = centerX - diffY * signedCurvature;
+  const anchorY = centerY + diffX * signedCurvature;
 
   // Bezier point + tangent at t = 0.5 (true curve midpoint)
   const t = 0.5;
@@ -366,6 +365,19 @@ function drawColoredEdgeLabel(
 
   context.restore();
 }
+
+/**
+ * Straight + curved edge programs share the same on-strand label painter.
+ * Without passing drawLabel, @sigma/edge-curve would use its built-in drawer
+ * (alphabetic baseline) which floats labels above the stroke — only extreme
+ * curvatures looked "on the line". Our drawer centers every kind/role label
+ * on its own parallel curve (textBaseline middle at Bezier t=0.5).
+ */
+const StraightArrowProgram = createEdgeArrowProgram(ARROW_HEAD);
+const CurvedArrowProgram = createEdgeCurveProgram({
+  arrowHead: { extremity: "target", ...ARROW_HEAD },
+  drawLabel: drawColoredEdgeLabel,
+});
 
 export function NetworkGraph({
   people,
@@ -638,9 +650,10 @@ export function NetworkGraph({
       ) => {
         if (typeof parallelMinIndex === "number") {
           const idx = parallelIndex ?? 0;
-          const curved = idx !== 0;
+          // Always curved when parallels exist so each label sits on its strand
+          // (index 0 may have curvature 0 = straight Bezier, still same painter).
           graph.mergeEdgeAttributes(edge, {
-            type: curved ? "curved" : "straight",
+            type: "curved",
             curvature: getCurvature(idx, parallelMaxIndex ?? 1),
           });
         } else if (typeof parallelIndex === "number") {
