@@ -1,7 +1,4 @@
-import {
-  fetchTwitchUserByLogin,
-  hasTwitchCredentials,
-} from "../_lib/twitch";
+import { resolveTwitchUser } from "../_lib/twitch";
 import { jsonResponse } from "../_lib/http";
 
 interface Env {
@@ -18,30 +15,16 @@ export async function onRequestGet(context: {
 
   if (!login || !/^[a-z0-9_]{1,25}$/.test(login)) {
     return jsonResponse(
-      { ok: false, error: "Invalid Twitch login." },
+      { ok: false, error: "Ungültiger Twitch-Login." },
       { status: 400 },
     );
   }
 
-  const creds = {
-    clientId: context.env.TWITCH_CLIENT_ID ?? "",
-    clientSecret: context.env.TWITCH_CLIENT_SECRET ?? "",
-  };
-
-  if (!hasTwitchCredentials(creds)) {
-    return jsonResponse(
-      {
-        ok: false,
-        demo: true,
-        error:
-          "Twitch is not configured. Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET.",
-      },
-      { status: 503 },
-    );
-  }
-
   try {
-    const result = await fetchTwitchUserByLogin(creds, login);
+    const result = await resolveTwitchUser(login, {
+      clientId: context.env.TWITCH_CLIENT_ID ?? "",
+      clientSecret: context.env.TWITCH_CLIENT_SECRET ?? "",
+    });
     if (!result.ok) {
       return jsonResponse(
         { ok: false, error: result.error },
@@ -50,6 +33,7 @@ export async function onRequestGet(context: {
     }
     return jsonResponse({
       ok: true,
+      source: result.source,
       user: {
         login: result.user.login,
         display_name: result.user.display_name,
@@ -58,7 +42,9 @@ export async function onRequestGet(context: {
     });
   } catch (err) {
     const message =
-      err instanceof Error ? err.message : "Unexpected Twitch resolver error.";
+      err instanceof Error
+        ? err.message
+        : "Unerwarteter Fehler beim Twitch-Resolver.";
     return jsonResponse({ ok: false, error: message }, { status: 502 });
   }
 }

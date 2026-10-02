@@ -3,7 +3,7 @@ import type { Category, Person } from "../types";
 export interface ResolveResult {
   ok: true;
   person: Omit<Person, "id" | "category">;
-  /** True when Twitch credentials are missing and a slug-based stub was used. */
+  /** True when a soft stub was used (legacy; public Twitch resolve should not set this). */
   demo?: boolean;
 }
 
@@ -295,7 +295,8 @@ async function resolveX(
 
 /**
  * Resolve display name + avatar from a Twitch or X/Twitter profile URL.
- * Twitch uses Helix via `/api/twitch-user` (Client Credentials).
+ * Twitch via `/api/twitch-user`: public sources by default (no secret);
+ * optional Helix Client Credentials only when both ID + Secret are set.
  * X uses public FxTwitter + unavatar fallback (no paid API key).
  */
 export async function resolveProfileFromUrl(

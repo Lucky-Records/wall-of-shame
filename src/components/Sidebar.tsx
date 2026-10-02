@@ -3,7 +3,6 @@ import type { Category, Person } from "../types";
 import { ALL_CATEGORIES, CATEGORY_COLORS } from "../types";
 import {
   defaultCategoryForPlatform,
-  fetchTwitchReady,
   resolveProfileFromUrl,
 } from "../utils/resolveProfile";
 
@@ -53,17 +52,6 @@ export function Sidebar({
   const [connectTarget, setConnectTarget] = useState("");
   const [resolving, setResolving] = useState(false);
   const [preview, setPreview] = useState<PreviewPerson | null>(null);
-  const [twitchReady, setTwitchReady] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchTwitchReady().then((ready) => {
-      if (!cancelled) setTwitchReady(ready);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (!canEdit) {
@@ -130,14 +118,6 @@ export function Sidebar({
 
   return (
     <>
-      {twitchReady === false ? (
-        <p className="demo-banner" role="status">
-          <strong>Demo-Modus:</strong> Twitch Client ID/Secret fehlen oder passen
-          nicht. Twitch-Links nutzen ein Platzhalter-Avatar. X/Twitter funktioniert
-          weiterhin.
-        </p>
-      ) : null}
-
       <section className={`panel${!canEdit ? " panel-locked" : ""}`}>
         <h2>Person hinzufügen</h2>
         {!canEdit ? (

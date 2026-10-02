@@ -24,8 +24,8 @@ import {
   type GraphStore,
 } from "./functions/_lib/graphStore.ts";
 import {
-  fetchTwitchUserByLogin,
-  hasTwitchCredentials,
+  hasHelixCredentials,
+  resolveTwitchUser,
 } from "./functions/_lib/twitch.ts";
 import { jsonResponse } from "./functions/_lib/http.ts";
 
@@ -125,27 +125,15 @@ async function handleTwitchUser(
   const login = (url.searchParams.get("login") ?? "").trim().toLowerCase();
   if (!login || !/^[a-z0-9_]{1,25}$/.test(login)) {
     return jsonResponse(
-      { ok: false, error: "Invalid Twitch login." },
+      { ok: false, error: "Ungültiger Twitch-Login." },
       { status: 400 },
     );
   }
-  const creds = {
-    clientId: env.TWITCH_CLIENT_ID ?? "",
-    clientSecret: env.TWITCH_CLIENT_SECRET ?? "",
-  };
-  if (!hasTwitchCredentials(creds)) {
-    return jsonResponse(
-      {
-        ok: false,
-        demo: true,
-        error:
-          "Twitch is not configured. Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET.",
-      },
-      { status: 503 },
-    );
-  }
   try {
-    const result = await fetchTwitchUserByLogin(creds, login);
+    const result = await resolveTwitchUser(login, {
+      clientId: env.TWITCH_CLIENT_ID ?? "",
+      clientSecret: env.TWITCH_CLIENT_SECRET ?? "",
+    });
     if (!result.ok) {
       return jsonResponse(
         { ok: false, error: result.error },
@@ -154,6 +142,7 @@ async function handleTwitchUser(
     }
     return jsonResponse({
       ok: true,
+      source: result.source,
       user: {
         login: result.user.login,
         display_name: result.user.display_name,
@@ -162,17 +151,19 @@ async function handleTwitchUser(
     });
   } catch (err) {
     const message =
-      err instanceof Error ? err.message : "Unexpected Twitch resolver error.";
+      err instanceof Error
+        ? err.message
+        : "Unerwarteter Fehler beim Twitch-Resolver.";
     return jsonResponse({ ok: false, error: message }, { status: 502 });
   }
 }
 
 function handleTwitchStatus(env: ApiEnv): Response {
-  const ready = hasTwitchCredentials({
+  const helix = hasHelixCredentials({
     clientId: env.TWITCH_CLIENT_ID ?? "",
     clientSecret: env.TWITCH_CLIENT_SECRET ?? "",
   });
-  return jsonResponse({ ready });
+  return jsonResponse({ ready: true, helix });
 }
 
 type ConnectMiddleware = {

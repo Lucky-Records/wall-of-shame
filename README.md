@@ -12,14 +12,14 @@ draw connections, and delete people. No Discord login required.
 - Categories: **Streamer**, **Mod**, **Bubble** (color legend + filters)
 - Add a person by pasting a Twitch or X/Twitter profile URL
 - Real profile ingest:
-  - **Twitch** → Helix `GET /users?login=` via Client Credentials (`/api/twitch-user`)
+  - **Twitch** → public resolve by default (ivr.fi / Twitch GQL / unavatar) via `/api/twitch-user` — **no Client Secret required**
+  - Optional Helix enhancement only when **both** `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` are set
   - **X/Twitter** → public FxTwitter profile API + [unavatar.io](https://unavatar.io) avatar fallback (no paid X API key)
 - Draw connections between people (click two nodes, or use the sidebar)
 - Delete people (and their edges) from the list or selection panel
 - Public read **and** write of graph APIs
 - Durable graph storage on Cloudflare via Workers KV (`GRAPH_KV`)
 - Dark public-facing board UI (German)
-- Demo-mode banner when Twitch credentials are missing/mismatched
 
 ## Stack
 
@@ -40,20 +40,22 @@ cp .env.example .env
 
 | Variable | Purpose |
 | --- | --- |
-| `TWITCH_CLIENT_ID` | Twitch application Client ID |
-| `TWITCH_CLIENT_SECRET` | Twitch application Client Secret (server only) |
+| `TWITCH_CLIENT_ID` | Optional — only used with Helix when Secret is also set |
+| `TWITCH_CLIENT_SECRET` | Optional Helix Client Secret (server only). **Not required** for public boards |
 | `APP_ORIGIN` | Optional public origin (local/prod) |
 
 Discord OAuth variables are optional/legacy and unused for edit gating.
 
 ### Twitch setup
 
-1. Open [Twitch Developer Console](https://dev.twitch.tv/console/apps) → register an application.
-2. Copy the **Client ID** and create a **Client Secret** from the **same** app.
-3. Put both in `.env` / Pages secrets.
-4. Helix uses Client Credentials; the secret must never ship in the browser bundle.
+Twitch profile resolve works **without any Twitch app credentials**. Paste a
+`https://www.twitch.tv/{login}` link; the server looks up display name + avatar
+from free public sources.
 
-Without matching Twitch vars, Twitch ingest runs in **demo mode** (slug → Dicebear avatar). X/Twitter ingest still works without keys.
+Helix Client Credentials are an **optional** upgrade if you already have a
+matching Client ID + Secret pair from [dev.twitch.tv/console](https://dev.twitch.tv/console/apps).
+If only the Client ID is set (or the pair is mismatched), Helix is skipped and
+the public fallback is used.
 
 ## Cloudflare KV
 
