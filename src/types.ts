@@ -170,9 +170,16 @@ export function connectionEdgeColor(
   kinds: ConnectionKind[],
   roles: Role[],
 ): string {
-  if (kinds.length) return CONNECTION_KIND_COLORS[kinds[0]!];
-  if (roles.length) return ROLE_COLORS[primaryRole(roles)];
-  return "#94a3b8";
+  return connectionEdgeColors(kinds, roles)[0]!;
+}
+
+/** One badge color per selected kind/role — used for multi-strand edges. */
+export function connectionEdgeColors(
+  kinds: ConnectionKind[],
+  roles: Role[],
+): string[] {
+  const colors = connectionTagSegments(kinds, roles).map((s) => s.color);
+  return colors.length ? colors : ["#94a3b8"];
 }
 
 export function toggleInList<T>(list: T[], item: T, minOne = false): T[] {

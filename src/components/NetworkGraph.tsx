@@ -28,7 +28,7 @@ import type {
   Role,
 } from "../types";
 import {
-  connectionEdgeColor,
+  connectionEdgeColors,
   connectionTagSegments,
   formatConnectionTags,
   PERSON_DRAG_MIME,
@@ -603,23 +603,30 @@ export function NetworkGraph({
       graph.dropEdge(edge);
     }
 
-    function edgeAttrs(conn: Connection) {
-      const kinds = Array.isArray(conn.kinds) ? conn.kinds : [];
-      const roles = Array.isArray(conn.roles) ? conn.roles : [];
-      return {
-        size: 2.4,
-        color: connectionEdgeColor(kinds, roles),
-        label: formatConnectionTags(kinds, roles),
-        kinds,
-        roles,
-        type: "straight" as const,
-        forceLabel: true,
-      };
-    }
-
+    // One visual strand per selected kind/role so every tag color shows on the line
     for (const conn of visibleConnections) {
       if (!graph.hasNode(conn.source) || !graph.hasNode(conn.target)) continue;
-      graph.addEdgeWithKey(conn.id, conn.source, conn.target, edgeAttrs(conn));
+      const kinds = Array.isArray(conn.kinds) ? conn.kinds : [];
+      const roles = Array.isArray(conn.roles) ? conn.roles : [];
+      const colors = connectionEdgeColors(kinds, roles);
+      const n = colors.length;
+      const labelCarrier = Math.floor((n - 1) / 2);
+      const tagLabel = formatConnectionTags(kinds, roles);
+      const strandSize = n > 1 ? 2.0 : 2.4;
+
+      colors.forEach((color, i) => {
+        const isLabel = i === labelCarrier;
+        const key = n === 1 ? conn.id : `${conn.id}__strand_${i}`;
+        graph.addEdgeWithKey(key, conn.source, conn.target, {
+          size: strandSize,
+          color,
+          label: isLabel ? tagLabel : null,
+          kinds: isLabel ? kinds : [],
+          roles: isLabel ? roles : [],
+          type: "straight" as const,
+          forceLabel: isLabel,
+        });
+      });
     }
 
     indexParallelEdgesIndex(graph, {
