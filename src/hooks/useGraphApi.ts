@@ -102,6 +102,33 @@ export async function apiAddConnection(
   return data.connection;
 }
 
+
+export async function apiUpdateConnection(
+  connectionId: string,
+  kinds: ConnectionKind[],
+  roles: Role[],
+): Promise<{ connection: Connection; deleted?: boolean }> {
+  const res = await fetch(
+    `/api/graph/connections/${encodeURIComponent(connectionId)}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kinds, roles }),
+    },
+  );
+  const data = (await res.json()) as {
+    ok?: boolean;
+    connection?: Connection;
+    deleted?: boolean;
+    error?: string;
+  };
+  if (!res.ok || !data.ok || !data.connection) {
+    throw new Error(data.error ?? `Update connection failed (${res.status}).`);
+  }
+  return { connection: data.connection, deleted: data.deleted };
+}
+
 export async function apiDeleteConnection(
   connectionId: string,
 ): Promise<Connection> {

@@ -12,6 +12,7 @@ import {
 import type { DiscordEnv } from "./functions/_lib/discord.ts";
 import {
   handleConnectionDelete,
+  handleConnectionPatch,
   handleConnectionsPost,
   handleGraphGet,
   handlePeoplePost,
@@ -261,10 +262,16 @@ function attachApi(
           }
         }
       } else if (method === "PATCH") {
-        const match = pathname.match(/^\/api\/graph\/people\/([^/]+)$/);
-        if (match) {
-          const id = decodeURIComponent(match[1]!);
-          response = await handlePersonPatch(request, store, id, env);
+        const connMatch = pathname.match(/^\/api\/graph\/connections\/([^/]+)$/);
+        if (connMatch) {
+          const id = decodeURIComponent(connMatch[1]!);
+          response = await handleConnectionPatch(request, store, id, env);
+        } else {
+          const match = pathname.match(/^\/api\/graph\/people\/([^/]+)$/);
+          if (match) {
+            const id = decodeURIComponent(match[1]!);
+            response = await handlePersonPatch(request, store, id, env);
+          }
         }
       }
 

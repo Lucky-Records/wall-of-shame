@@ -4,10 +4,8 @@ import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
 import { NodeImageProgram } from "@sigma/node-image";
 import {
-  createDrawCurvedEdgeLabel,
   createEdgeCurveProgram,
   DEFAULT_EDGE_CURVATURE,
-  DEFAULT_EDGE_CURVE_PROGRAM_OPTIONS,
   indexParallelEdgesIndex,
 } from "@sigma/edge-curve";
 import { createEdgeArrowProgram } from "sigma/rendering";
@@ -31,12 +29,15 @@ import type {
 } from "../types";
 import {
   connectionEdgeColor,
+  connectionTagSegments,
   formatConnectionTags,
   PERSON_DRAG_MIME,
   personMatchesRoles,
   primaryRole,
   ROLE_COLORS,
   ROLE_LABELS,
+  type ConnectionKind,
+  type ConnectionTagSegment,
 } from "../types";
 
 interface NetworkGraphProps {
@@ -243,6 +244,145 @@ function drawAttachedNodeLabel(
   context.restore();
 }
 
+/**
+ * Paint connection kinds/roles as individually colored label segments
+ * along the edge (curved-aware), matching sidebar badge colors.
+ */
+function drawColoredEdgeLabel(
+  context: CanvasRenderingContext2D,
+  edgeData: {
+    label?: string | null;
+    size?: number;
+    color?: string;
+    curvature?: number;
+    kinds?: ConnectionKind[];
+    roles?: Role[];
+  },
+  sourceData: { x: number; y: number; size: number },
+  targetData: { x: number; y: number; size: number },
+  settings: Settings,
+) {
+  const kinds = Array.isArray(edgeData.kinds) ? edgeData.kinds : [];
+  const roles = Array.isArray(edgeData.roles) ? edgeData.roles : [];
+  let segments: ConnectionTagSegment[] = connectionTagSegments(kinds, roles);
+
+  if (!segments.length) {
+    const fallback = edgeData.label?.trim();
+    if (!fallback || fallback === "—") return;
+    segments = [{ text: fallback, color: "#cbd5e1" }];
+  }
+
+  const size = settings.edgeLabelSize || 11;
+  const font = settings.edgeLabelFont || "Inter, system-ui, sans-serif";
+  const weight = settings.edgeLabelWeight || "600";
+  const curvature =
+    typeof edgeData.curvature === "number"
+      ? edgeData.curvature
+      : DEFAULT_EDGE_CURVATURE;
+  const keepLabelUpright = true;
+
+  const ltr = !keepLabelUpright || sourceData.x < targetData.x;
+  let sourceX = ltr ? sourceData.x : targetData.x;
+  let sourceY = ltr ? sourceData.y : targetData.y;
+  let targetX = ltr ? targetData.x : sourceData.x;
+  let targetY = ltr ? targetData.y : sourceData.y;
+  const centerX = (sourceX + targetX) / 2;
+  const centerY = (sourceY + targetY) / 2;
+  const diffX = targetX - sourceX;
+  const diffY = targetY - sourceY;
+  const diff = Math.sqrt(diffX * diffX + diffY * diffY);
+  if (!Number.isFinite(diff) || diff < 1) return;
+
+  const orientation = ltr ? 1 : -1;
+  let anchorX = centerX + diffY * curvature * orientation;
+  let anchorY = centerY - diffX * curvature * orientation;
+
+  const offset = (edgeData.size ?? 2) * 0.7 + 5;
+  const sourceOffsetVector = {
+    x: anchorY - sourceY,
+    y: -(anchorX - sourceX),
+  };
+  const sourceOffsetLen = Math.sqrt(
+    sourceOffsetVector.x ** 2 + sourceOffsetVector.y ** 2,
+  );
+  const targetOffsetVector = {
+    x: targetY - anchorY,
+    y: -(targetX - anchorX),
+  };
+  const targetOffsetLen = Math.sqrt(
+    targetOffsetVector.x ** 2 + targetOffsetVector.y ** 2,
+  );
+  if (sourceOffsetLen > 0) {
+    sourceX += (offset * sourceOffsetVector.x) / sourceOffsetLen;
+    sourceY += (offset * sourceOffsetVector.y) / sourceOffsetLen;
+  }
+  if (targetOffsetLen > 0) {
+    targetX += (offset * targetOffsetVector.x) / targetOffsetLen;
+    targetY += (offset * targetOffsetVector.y) / targetOffsetLen;
+  }
+  anchorX += (offset * diffY) / diff;
+  anchorY -= (offset * diffX) / diff;
+
+  // Midpoint of quadratic Bezier (t = 0.5)
+  const midX =
+    0.25 * sourceX + 0.5 * anchorX + 0.25 * targetX;
+  const midY =
+    0.25 * sourceY + 0.5 * anchorY + 0.25 * targetY;
+  const tangentX = anchorX - sourceX + (targetX - anchorX);
+  const tangentY = anchorY - sourceY + (targetY - anchorY);
+  const angle = Math.atan2(tangentY, tangentX);
+
+  const sep = " · ";
+  context.save();
+  context.font = `${weight} ${size}px ${font}`;
+  context.textBaseline = "middle";
+  context.textAlign = "left";
+
+  const widths = segments.map((s) => context.measureText(s.text).width);
+  const sepW = context.measureText(sep).width;
+  const totalW =
+    widths.reduce((a, b) => a + b, 0) +
+    sepW * Math.max(segments.length - 1, 0);
+
+  // Skip if edge is too short for the full tag string
+  const approxLen = Math.sqrt((targetX - sourceX) ** 2 + (targetY - sourceY) ** 2);
+  if (approxLen < sourceData.size + targetData.size) {
+    context.restore();
+    return;
+  }
+
+  context.translate(midX, midY);
+  context.rotate(angle);
+
+  // Soft backdrop so colors stay readable on the graph
+  const padX = 5;
+  const padY = 3;
+  context.fillStyle = "rgba(11, 16, 32, 0.72)";
+  roundRect(
+    context,
+    -totalW / 2 - padX,
+    -size / 2 - padY,
+    totalW + padX * 2,
+    size + padY * 2,
+    6,
+  );
+  context.fill();
+
+  let cursorX = -totalW / 2;
+  segments.forEach((segment, i) => {
+    context.fillStyle = segment.color;
+    context.fillText(segment.text, cursorX, 0);
+    cursorX += widths[i]!;
+    if (i < segments.length - 1) {
+      context.fillStyle = "#64748b";
+      context.fillText(sep, cursorX, 0);
+      cursorX += sepW;
+    }
+  });
+
+  context.restore();
+}
+
 export function NetworkGraph({
   people,
   connections,
@@ -324,9 +464,7 @@ export function NetworkGraph({
         curved: CurvedArrowProgram,
       },
       defaultDrawNodeLabel: drawAttachedNodeLabel,
-      defaultDrawEdgeLabel: createDrawCurvedEdgeLabel(
-        DEFAULT_EDGE_CURVE_PROGRAM_OPTIONS,
-      ),
+      defaultDrawEdgeLabel: drawColoredEdgeLabel,
     });
 
     sigmaRef.current = sigma;

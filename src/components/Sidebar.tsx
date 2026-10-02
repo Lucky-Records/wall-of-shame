@@ -35,6 +35,11 @@ interface SidebarProps {
   onUpdateRoles: (personId: string, roles: Role[]) => void;
   onDeletePerson: (personId: string) => void;
   onDeleteConnection: (connectionId: string) => void;
+  onUpdateConnectionTags: (
+    connectionId: string,
+    kinds: ConnectionKind[],
+    roles: Role[],
+  ) => void;
   onStartConnect: (personId: string | null) => void;
   onConnectKindsChange: (kinds: ConnectionKind[]) => void;
   onConnectRolesChange: (roles: Role[]) => void;
@@ -182,6 +187,7 @@ export function Sidebar({
   onUpdateRoles,
   onDeletePerson,
   onDeleteConnection,
+  onUpdateConnectionTags,
   onStartConnect,
   onConnectKindsChange,
   onConnectRolesChange,
@@ -464,6 +470,12 @@ export function Sidebar({
 
 <section className="panel">
         <h2>Verbindungen ({connections.length})</h2>
+        {canEdit && connectionsSorted.length > 0 ? (
+          <p className="hint">
+            Chip anklicken zum Abwählen (ohne die ganze Verbindung zu löschen;
+            letztes Tag entfernt die Kante).
+          </p>
+        ) : null}
         {connectionsSorted.length === 0 ? (
           <p className="hint">Noch keine Verbindungen.</p>
         ) : (
@@ -484,24 +496,54 @@ export function Sidebar({
                     </span>
                     <span className="role-inline-pills">
                       {c.kinds.map((k) => (
-                        <span
+                        <button
                           key={`k-${k}`}
-                          className="cat-pill"
+                          type="button"
+                          className="cat-pill cat-pill-toggle"
                           style={{ background: CONNECTION_KIND_COLORS[k] }}
-                          title="Beziehung"
+                          title={
+                            canEdit
+                              ? `${CONNECTION_KIND_LABELS[k]} abwählen`
+                              : "Beziehung"
+                          }
+                          disabled={!canEdit}
+                          onClick={() => {
+                            const nextKinds = c.kinds.filter((x) => x !== k);
+                            onUpdateConnectionTags(c.id, nextKinds, c.roles);
+                          }}
                         >
                           {CONNECTION_KIND_LABELS[k]}
-                        </span>
+                          {canEdit ? (
+                            <span className="pill-x" aria-hidden="true">
+                              ×
+                            </span>
+                          ) : null}
+                        </button>
                       ))}
                       {c.roles.map((r) => (
-                        <span
+                        <button
                           key={`r-${r}`}
-                          className="cat-pill cat-pill-role-tag"
+                          type="button"
+                          className="cat-pill cat-pill-role-tag cat-pill-toggle"
                           style={{ background: ROLE_COLORS[r] }}
-                          title="Rollen-Tag"
+                          title={
+                            canEdit
+                              ? `${ROLE_LABELS[r]} abwählen`
+                              : "Rollen-Tag"
+                          }
+                          disabled={!canEdit}
+                          onClick={() => {
+                            const nextRoles = c.roles.filter((x) => x !== r);
+                            onUpdateConnectionTags(c.id, c.kinds, nextRoles);
+                          }}
                         >
                           {ROLE_LABELS[r]}
-                        </span>
+                          {canEdit ? (
+                            <span className="pill-x" aria-hidden="true">
+                              ×
+                            </span>
+                          ) : null}
+                        </button>
                       ))}
                     </span>
                   </div>

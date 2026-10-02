@@ -136,14 +136,33 @@ export const CONNECTION_KIND_COLORS: Record<ConnectionKind, string> = {
   Streamerkollege: "#a78bfa",
 };
 
+export type ConnectionTagSegment = {
+  text: string;
+  color: string;
+};
+
+/** Kind + role tags with badge colors for graph edge labels. */
+export function connectionTagSegments(
+  kinds: ConnectionKind[],
+  roles: Role[],
+): ConnectionTagSegment[] {
+  return [
+    ...kinds.map((k) => ({
+      text: CONNECTION_KIND_LABELS[k],
+      color: CONNECTION_KIND_COLORS[k],
+    })),
+    ...roles.map((r) => ({
+      text: ROLE_LABELS[r],
+      color: ROLE_COLORS[r],
+    })),
+  ];
+}
+
 export function formatConnectionTags(
   kinds: ConnectionKind[],
   roles: Role[],
 ): string {
-  const parts = [
-    ...kinds.map((k) => CONNECTION_KIND_LABELS[k]),
-    ...roles.map((r) => ROLE_LABELS[r]),
-  ];
+  const parts = connectionTagSegments(kinds, roles).map((s) => s.text);
   return parts.length ? parts.join(" · ") : "—";
 }
 

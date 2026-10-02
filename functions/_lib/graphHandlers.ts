@@ -271,6 +271,73 @@ export async function handleConnectionsPost(
   return jsonResponse({ ok: true, connection }, { status: 201 });
 }
 
+export async function handleConnectionPatch(
+  request: Request,
+  store: GraphStore,
+  connectionId: string,
+  env?: NotifyEnv,
+): Promise<Response> {
+  const body = await readJsonBody<{
+    kinds?: unknown;
+    kind?: unknown;
+    roles?: unknown;
+  }>(request);
+  if (!body) {
+    return jsonResponse({ ok: false, error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const hasKinds = body.kinds !== undefined || body.kind !== undefined;
+  const hasRoles = body.roles !== undefined;
+  if (!hasKinds && !hasRoles) {
+    return jsonResponse(
+      { ok: false, error: "Provide kinds and/or roles." },
+      { status: 400 },
+    );
+  }
+
+  const data = await store.get();
+  const idx = data.connections.findIndex((c) => c.id === connectionId);
+  if (idx === -1) {
+    return jsonResponse(
+      { ok: false, error: "Connection not found." },
+      { status: 404 },
+    );
+  }
+
+  const prev = data.connections[idx]!;
+  const nextKinds = hasKinds
+    ? normalizeKinds(body.kinds, body.kind)
+    : [...prev.kinds];
+  const nextRoles = hasRoles
+    ? normalizeEdgeRoles(body.roles)
+    : [...prev.roles];
+
+  // No tags left → remove the whole edge
+  if (nextKinds.length === 0 && nextRoles.length === 0) {
+    data.connections.splice(idx, 1);
+    await store.set(data);
+    await notifyGraphMutation(env);
+    return jsonResponse({ ok: true, connection: prev, deleted: true });
+  }
+
+  const updated: Connection = {
+    ...prev,
+    kinds: nextKinds,
+    roles: nextRoles,
+  };
+  if (!isConnection(updated)) {
+    return jsonResponse(
+      { ok: false, error: "Invalid connection tags." },
+      { status: 400 },
+    );
+  }
+
+  data.connections[idx] = updated;
+  await store.set(data);
+  await notifyGraphMutation(env);
+  return jsonResponse({ ok: true, connection: updated });
+}
+
 export async function handleConnectionDelete(
   request: Request,
   store: GraphStore,

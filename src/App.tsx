@@ -7,6 +7,7 @@ import {
   apiAddPerson,
   apiDeleteConnection,
   apiDeletePerson,
+  apiUpdateConnection,
   apiUpdatePosition,
   apiUpdateRoles,
   fetchGraph,
@@ -288,6 +289,45 @@ export default function App() {
     [connections, people, flash],
   );
 
+  const handleUpdateConnectionTags = useCallback(
+    async (
+      connectionId: string,
+      kinds: ConnectionKind[],
+      roles: Role[],
+    ) => {
+      const conn = connections.find((c) => c.id === connectionId);
+      if (!conn) return;
+      const a = people.find((p) => p.id === conn.source)?.name ?? conn.source;
+      const b = people.find((p) => p.id === conn.target)?.name ?? conn.target;
+
+      try {
+        const result = await apiUpdateConnection(connectionId, kinds, roles);
+        if (result.deleted) {
+          setConnections((prev) => prev.filter((c) => c.id !== connectionId));
+          flash(
+            `${a} → ${b} · ${formatConnectionTags(conn.kinds, conn.roles)} entfernt (keine Tags übrig).`,
+          );
+        } else {
+          setConnections((prev) =>
+            prev.map((c) =>
+              c.id === connectionId ? result.connection : c,
+            ),
+          );
+          flash(
+            `${a} → ${b} · ${formatConnectionTags(result.connection.kinds, result.connection.roles)}`,
+          );
+        }
+      } catch (err) {
+        flash(
+          err instanceof Error
+            ? err.message
+            : "Verbindungs-Tags konnten nicht aktualisiert werden.",
+        );
+      }
+    },
+    [connections, people, flash],
+  );
+
   const handleNodeClick = useCallback(
     (personId: string) => {
       if (!connectFromId) {
@@ -359,6 +399,9 @@ export default function App() {
           }}
           onDeleteConnection={(id) => {
             void handleDeleteConnection(id);
+          }}
+          onUpdateConnectionTags={(id, kinds, roles) => {
+            void handleUpdateConnectionTags(id, kinds, roles);
           }}
           onStartConnect={setConnectFromId}
           onConnectKindsChange={setConnectKinds}
