@@ -25,6 +25,7 @@ import type {
 } from "../types";
 import {
   connectionTagSegments,
+  isRole,
   PERSON_DRAG_MIME,
   personMatchesRoles,
   primaryRole,
@@ -91,14 +92,7 @@ function resolvePosition(
 }
 
 function isRoleValue(value: unknown): value is Role {
-  return (
-    value === "Streamer" ||
-    value === "Mod" ||
-    value === "User" ||
-    value === "Ex-Mod" ||
-    value === "Headmod" ||
-    value === "gebannt"
-  );
+  return isRole(value);
 }
 
 function parsePersonDraft(raw: string): PersonDraft | null {
@@ -119,8 +113,6 @@ function parsePersonDraft(raw: string): PersonDraft | null {
       roles = data.roles.filter(isRoleValue);
     } else if (isRoleValue(data.category)) {
       roles = [data.category];
-    } else if (data.category === "Bubble") {
-      roles = ["User"];
     }
     if (!roles.length) return null;
     if (

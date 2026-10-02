@@ -589,7 +589,7 @@ export function Sidebar({
             disabled={!canEdit}
             allowEmpty
             legend="Rollen-Tags an der Kante (Mehrfachauswahl)"
-            hint="Optional — z.B. Ex-Mod + gebannt neben Beziehungstypen"
+            hint="Optional — z.B. Fren + Twitter neben Beziehungstypen"
           />
 
           <label>

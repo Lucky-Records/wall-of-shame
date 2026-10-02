@@ -1,12 +1,10 @@
 export type Role =
   | "Streamer"
   | "Mod"
-  | "User"
-  | "Ex-Mod"
-  | "Headmod"
-  | "gebannt";
+  | "Twitter"
+  | "Fren";
 
-/** Legacy single-category values (Bubble → User). */
+/** Legacy single-category values are discarded during normalization. */
 export type Category = Role | "Bubble";
 
 export type ConnectionKind = "Mod" | "Fren" | "Streamerkollege";
@@ -43,14 +41,7 @@ export interface GraphStore {
   set(data: GraphData): Promise<void>;
 }
 
-const ROLES = new Set<Role>([
-  "Streamer",
-  "Mod",
-  "User",
-  "Ex-Mod",
-  "Headmod",
-  "gebannt",
-]);
+const ROLES = new Set<Role>(["Streamer", "Mod", "Twitter", "Fren"]);
 const PLATFORMS = new Set(["twitch", "twitter", "x", "unknown"]);
 const CONNECTION_KINDS = new Set<ConnectionKind>([
   "Mod",
@@ -59,7 +50,7 @@ const CONNECTION_KINDS = new Set<ConnectionKind>([
 ]);
 
 export const DEFAULT_CONNECTION_KIND: ConnectionKind = "Fren";
-export const DEFAULT_ROLE: Role = "User";
+export const DEFAULT_ROLE: Role = "Streamer";
 
 export function cloneGraph(data: GraphData): GraphData {
   return {
@@ -88,9 +79,8 @@ export function isRole(value: unknown): value is Role {
   return typeof value === "string" && ROLES.has(value as Role);
 }
 
-/** Accept Role or legacy Bubble (maps to User). */
+/** Accept only current roles; removed roles and legacy Bubble are discarded. */
 export function coerceRole(value: unknown): Role | null {
-  if (value === "Bubble") return "User";
   if (isRole(value)) return value;
   return null;
 }
@@ -130,18 +120,17 @@ export function normalizeRoles(raw: unknown, legacyCategory?: unknown): Role[] {
     if (fromCat) out.push(fromCat);
   }
 
-  if (out.length === 0) out.push(DEFAULT_ROLE);
+  // An old person may have had only a removed role. Keep the person but strip
+  // that role instead of inventing a replacement badge.
   return out;
 }
 
 export function isPerson(value: unknown): value is Person {
   if (!value || typeof value !== "object") return false;
   const p = value as Record<string, unknown>;
-  const roles = normalizeRoles(p.roles, p.category);
   const base =
     typeof p.id === "string" &&
     typeof p.name === "string" &&
-    roles.length > 0 &&
     typeof p.avatarUrl === "string" &&
     typeof p.profileUrl === "string" &&
     typeof p.platform === "string" &&

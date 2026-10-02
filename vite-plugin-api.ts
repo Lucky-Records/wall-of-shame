@@ -52,9 +52,13 @@ function createFileBackedStore(): GraphStore {
     writeFileSync(localGraphPath, JSON.stringify(loadSeed(), null, 2));
   }
 
-  const memory = createMemoryStore(
-    normalizeGraph(JSON.parse(readFileSync(localGraphPath, "utf8"))),
-  );
+  const raw = JSON.parse(readFileSync(localGraphPath, "utf8"));
+  const normalized = normalizeGraph(raw);
+  // Apply the same legacy-role migration to the local file-backed store.
+  if (JSON.stringify(raw) !== JSON.stringify(normalized)) {
+    writeFileSync(localGraphPath, JSON.stringify(normalized, null, 2));
+  }
+  const memory = createMemoryStore(normalized);
 
   return {
     async get() {

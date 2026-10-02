@@ -1,4 +1,5 @@
 import type { Connection, ConnectionKind, Person, Role } from "../types";
+import { normalizeRoles } from "../types";
 
 export async function fetchGraph(): Promise<{
   people: Person[];
@@ -14,7 +15,17 @@ export async function fetchGraph(): Promise<{
   if (!res.ok || !data.ok || !data.people || !data.connections) {
     throw new Error(data.error ?? `Failed to load graph (${res.status}).`);
   }
-  return { people: data.people, connections: data.connections };
+  // Keep the browser safe even if an older deployment returns legacy roles.
+  return {
+    people: data.people.map((person) => ({
+      ...person,
+      roles: normalizeRoles(person.roles),
+    })),
+    connections: data.connections.map((connection) => ({
+      ...connection,
+      roles: normalizeRoles(connection.roles),
+    })),
+  };
 }
 
 export async function apiAddPerson(

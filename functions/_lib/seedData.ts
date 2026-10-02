@@ -7,8 +7,7 @@ export const GRAPH_SEED: GraphData = {
       "id": "lucky",
       "name": "Lucky",
       "roles": [
-        "Streamer",
-        "Headmod"
+        "Streamer"
       ],
       "avatarUrl": "https://api.dicebear.com/9.x/thumbs/svg?seed=Lucky&backgroundColor=7c3aed",
       "profileUrl": "https://twitch.tv/lucky",
@@ -38,8 +37,7 @@ export const GRAPH_SEED: GraphData = {
       "id": "orbitmod",
       "name": "OrbitMod",
       "roles": [
-        "Mod",
-        "Ex-Mod"
+        "Mod"
       ],
       "avatarUrl": "https://api.dicebear.com/9.x/thumbs/svg?seed=OrbitMod&backgroundColor=10b981",
       "profileUrl": "https://x.com/orbitmod",
@@ -48,9 +46,7 @@ export const GRAPH_SEED: GraphData = {
     {
       "id": "bubbleskip",
       "name": "BubbleSkip",
-      "roles": [
-        "User"
-      ],
+      "roles": [],
       "avatarUrl": "https://api.dicebear.com/9.x/thumbs/svg?seed=BubbleSkip&backgroundColor=0284c7",
       "profileUrl": "https://twitter.com/bubbleskip",
       "platform": "twitter"
@@ -58,9 +54,7 @@ export const GRAPH_SEED: GraphData = {
     {
       "id": "glownote",
       "name": "GlowNote",
-      "roles": [
-        "User"
-      ],
+      "roles": [],
       "avatarUrl": "https://api.dicebear.com/9.x/thumbs/svg?seed=GlowNote&backgroundColor=0ea5e9",
       "profileUrl": "https://x.com/glownote",
       "platform": "x"
@@ -78,10 +72,7 @@ export const GRAPH_SEED: GraphData = {
     {
       "id": "chathaven",
       "name": "ChatHaven",
-      "roles": [
-        "User",
-        "gebannt"
-      ],
+      "roles": [],
       "avatarUrl": "https://api.dicebear.com/9.x/thumbs/svg?seed=ChatHaven&backgroundColor=38bdf8",
       "profileUrl": "https://twitch.tv/chathaven",
       "platform": "twitch"
@@ -92,63 +83,81 @@ export const GRAPH_SEED: GraphData = {
       "id": "c1",
       "source": "lucky",
       "target": "pixelpulse",
-      "kinds": ["Mod"],
+      "kinds": [
+        "Mod"
+      ],
       "roles": []
     },
     {
       "id": "c2",
       "source": "lucky",
       "target": "orbitmod",
-      "kinds": ["Mod"],
+      "kinds": [
+        "Mod"
+      ],
       "roles": []
     },
     {
       "id": "c3",
       "source": "lucky",
       "target": "neonfox",
-      "kinds": ["Streamerkollege"],
+      "kinds": [
+        "Streamerkollege"
+      ],
       "roles": []
     },
     {
       "id": "c4",
       "source": "neonfox",
       "target": "raidwave",
-      "kinds": ["Streamerkollege"],
+      "kinds": [
+        "Streamerkollege"
+      ],
       "roles": []
     },
     {
       "id": "c5",
       "source": "pixelpulse",
       "target": "bubbleskip",
-      "kinds": ["Fren"],
+      "kinds": [
+        "Fren"
+      ],
       "roles": []
     },
     {
       "id": "c6",
       "source": "orbitmod",
       "target": "glownote",
-      "kinds": ["Fren"],
+      "kinds": [
+        "Fren"
+      ],
       "roles": []
     },
     {
       "id": "c7",
       "source": "bubbleskip",
       "target": "chathaven",
-      "kinds": ["Fren"],
+      "kinds": [
+        "Fren"
+      ],
       "roles": []
     },
     {
       "id": "c8",
       "source": "raidwave",
       "target": "chathaven",
-      "kinds": ["Fren"],
+      "kinds": [
+        "Fren"
+      ],
       "roles": []
     },
     {
       "id": "c9",
       "source": "glownote",
       "target": "lucky",
-      "kinds": ["Fren"],
+      "kinds": [
+        "Fren"
+      ],
       "roles": []
     }
   ]

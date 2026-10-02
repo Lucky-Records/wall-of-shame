@@ -4,7 +4,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "lucky",
     name: "Lucky",
-    roles: ["Streamer", "Headmod"],
+    roles: ["Streamer"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=Lucky&backgroundColor=7c3aed",
     profileUrl: "https://twitch.tv/lucky",
     platform: "twitch",
@@ -28,7 +28,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "orbitmod",
     name: "OrbitMod",
-    roles: ["Mod", "Ex-Mod"],
+    roles: ["Mod"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=OrbitMod&backgroundColor=10b981",
     profileUrl: "https://x.com/orbitmod",
     platform: "x",
@@ -36,7 +36,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "bubbleskip",
     name: "BubbleSkip",
-    roles: ["User"],
+    roles: [],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=BubbleSkip&backgroundColor=0284c7",
     profileUrl: "https://twitter.com/bubbleskip",
     platform: "twitter",
@@ -44,7 +44,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "glownote",
     name: "GlowNote",
-    roles: ["User"],
+    roles: [],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=GlowNote&backgroundColor=0ea5e9",
     profileUrl: "https://x.com/glownote",
     platform: "x",
@@ -60,7 +60,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "chathaven",
     name: "ChatHaven",
-    roles: ["User", "gebannt"],
+    roles: [],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=ChatHaven&backgroundColor=38bdf8",
     profileUrl: "https://twitch.tv/chathaven",
     platform: "twitch",
@@ -72,9 +72,9 @@ export const MOCK_CONNECTIONS: Connection[] = [
   { id: "c2", source: "lucky", target: "orbitmod", kinds: ["Mod"], roles: [] },
   { id: "c3", source: "lucky", target: "neonfox", kinds: ["Streamerkollege", "Fren"], roles: ["Streamer"] },
   { id: "c4", source: "neonfox", target: "raidwave", kinds: ["Streamerkollege"], roles: [] },
-  { id: "c5", source: "pixelpulse", target: "bubbleskip", kinds: ["Fren"], roles: ["User"] },
+  { id: "c5", source: "pixelpulse", target: "bubbleskip", kinds: ["Fren"], roles: [] },
   { id: "c6", source: "orbitmod", target: "glownote", kinds: ["Fren"], roles: [] },
-  { id: "c7", source: "bubbleskip", target: "chathaven", kinds: ["Fren"], roles: ["gebannt"] },
+  { id: "c7", source: "bubbleskip", target: "chathaven", kinds: ["Fren"], roles: [] },
   { id: "c8", source: "raidwave", target: "chathaven", kinds: ["Fren"], roles: [] },
   { id: "c9", source: "glownote", target: "lucky", kinds: ["Fren"], roles: [] },
 ];

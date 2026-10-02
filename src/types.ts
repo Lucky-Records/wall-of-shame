@@ -1,10 +1,8 @@
 export type Role =
   | "Streamer"
   | "Mod"
-  | "User"
-  | "Ex-Mod"
-  | "Headmod"
-  | "gebannt";
+  | "Twitter"
+  | "Fren";
 
 /** @deprecated Use Role — kept as alias for gradual migration. */
 export type Category = Role;
@@ -52,10 +50,8 @@ export interface PersonDraft {
 export const ALL_ROLES: Role[] = [
   "Streamer",
   "Mod",
-  "User",
-  "Ex-Mod",
-  "Headmod",
-  "gebannt",
+  "Twitter",
+  "Fren",
 ];
 
 /** @deprecated Use ALL_ROLES */
@@ -64,10 +60,8 @@ export const ALL_CATEGORIES = ALL_ROLES;
 export const ROLE_COLORS: Record<Role, string> = {
   Streamer: "#a78bfa",
   Mod: "#34d399",
-  User: "#38bdf8",
-  "Ex-Mod": "#fb923c",
-  Headmod: "#fbbf24",
-  gebannt: "#fb7185",
+  Twitter: "#1da1f2",
+  Fren: "#fbbf24",
 };
 
 /** @deprecated Use ROLE_COLORS */
@@ -76,27 +70,18 @@ export const CATEGORY_COLORS = ROLE_COLORS;
 export const ROLE_LABELS: Record<Role, string> = {
   Streamer: "Streamer",
   Mod: "Mod",
-  User: "User",
-  "Ex-Mod": "Ex-Mod",
-  Headmod: "Headmod",
-  gebannt: "gebannt",
+  Twitter: "Twitter",
+  Fren: "Fren",
 };
 
 /** @deprecated Use ROLE_LABELS */
 export const CATEGORY_LABELS = ROLE_LABELS;
 
 /** Prefer this color when a person has multiple roles. */
-const ROLE_PRIORITY: Role[] = [
-  "gebannt",
-  "Headmod",
-  "Mod",
-  "Ex-Mod",
-  "Streamer",
-  "User",
-];
+const ROLE_PRIORITY: Role[] = ["Mod", "Streamer", "Twitter", "Fren"];
 
 export function primaryRole(roles: Role[]): Role {
-  if (!roles.length) return "User";
+  if (!roles.length) return "Streamer";
   for (const role of ROLE_PRIORITY) {
     if (roles.includes(role)) return role;
   }
@@ -104,7 +89,7 @@ export function primaryRole(roles: Role[]): Role {
 }
 
 export function formatRoles(roles: Role[]): string {
-  if (!roles.length) return ROLE_LABELS.User;
+  if (!roles.length) return "Keine Rolle";
   return roles.map((r) => ROLE_LABELS[r]).join(" · ");
 }
 
@@ -112,8 +97,23 @@ export function personMatchesRoles(
   person: Person,
   visible: Set<Role>,
 ): boolean {
-  if (!person.roles.length) return visible.has("User");
+  // Keep people with only removed legacy roles visible until reclassified.
+  if (!person.roles.length) return visible.size > 0;
   return person.roles.some((r) => visible.has(r));
+}
+
+/** Filter legacy/unknown role values at the client boundary. */
+export function isRole(value: unknown): value is Role {
+  return typeof value === "string" && ALL_ROLES.includes(value as Role);
+}
+
+export function normalizeRoles(raw: unknown): Role[] {
+  if (!Array.isArray(raw)) return [];
+  const roles: Role[] = [];
+  for (const value of raw) {
+    if (isRole(value) && !roles.includes(value)) roles.push(value);
+  }
+  return roles;
 }
 
 export const ALL_CONNECTION_KINDS: ConnectionKind[] = [

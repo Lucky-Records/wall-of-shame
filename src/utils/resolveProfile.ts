@@ -327,7 +327,7 @@ export function defaultRolesForPlatform(
   platform: Person["platform"],
 ): Role[] {
   if (platform === "twitch") return ["Streamer"];
-  return ["User"];
+  return ["Twitter"];
 }
 
 /** @deprecated Use defaultRolesForPlatform */

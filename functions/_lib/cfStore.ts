@@ -34,23 +34,9 @@ export function createKvStore(kv: KvLike): GraphStore {
       const raw = await kv.get(GRAPH_KEY, "json");
       if (looksLikeGraph(raw)) {
         const normalized = normalizeGraph(raw);
-        // Persist migration: roles[] + connection kinds[]/roles[]
-        const rawObj = raw as { people?: unknown[]; connections?: unknown[] };
-        const peopleNeedRoles =
-          !Array.isArray(rawObj.people) ||
-          rawObj.people.some((p) => {
-            if (!p || typeof p !== "object") return true;
-            const rec = p as Record<string, unknown>;
-            return !Array.isArray(rec.roles);
-          });
-        const edgesNeedKinds =
-          !Array.isArray(rawObj.connections) ||
-          rawObj.connections.some((c) => {
-            if (!c || typeof c !== "object") return true;
-            const rec = c as Record<string, unknown>;
-            return !Array.isArray(rec.kinds);
-          });
-        if (peopleNeedRoles || edgesNeedKinds) {
+        // Persist every normalization, including removal of obsolete role values.
+        // This migrates old KV data once while keeping GETs idempotent afterwards.
+        if (JSON.stringify(raw) !== JSON.stringify(normalized)) {
           await kv.put(GRAPH_KEY, JSON.stringify(normalized));
         }
         return cloneGraph(normalized);

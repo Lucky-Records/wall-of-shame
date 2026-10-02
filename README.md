@@ -3,13 +3,13 @@
 Interactive community network map for Discord — built for **Lucky**.
 
 Nodes are people (with avatar + name). Edges are connections between them.
-The board is **publicly editable**: anyone can add people, change categories,
+The board is **publicly editable**: anyone can add people, change roles,
 draw connections, and delete people. No Discord login required.
 
 ## Features
 
 - Force-directed graph UI (sigma.js + graphology), Gephi-style
-- Roles (multi-select): **Streamer**, **Mod**, **User**, **Ex-Mod**, **Headmod**, **gebannt** — badges on the board
+- Roles (multi-select): **Streamer**, **Mod**, **Twitter**, **Fren** — badges on the board
 - Directed connections with arrows (A → B); parallel strands stay visible
 - Add a person by pasting a Twitch or X/Twitter profile URL
 - Real profile ingest:
