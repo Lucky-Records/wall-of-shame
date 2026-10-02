@@ -2,15 +2,19 @@ import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } 
 import type {
   Connection,
   ConnectionKind,
+  ConnectionRole,
   Person,
   PersonDraft,
   Role,
 } from "../types";
 import {
   ALL_CONNECTION_KINDS,
+  ALL_CONNECTION_ROLES,
   ALL_ROLES,
   CONNECTION_KIND_COLORS,
   CONNECTION_KIND_LABELS,
+  CONNECTION_ROLE_COLORS,
+  CONNECTION_ROLE_LABELS,
   formatConnectionTags,
   formatRoles,
   PERSON_DRAG_MIME,
@@ -28,7 +32,7 @@ interface SidebarProps {
   connections: Connection[];
   connectFromId: string | null;
   connectKinds: ConnectionKind[];
-  connectRoles: Role[];
+  connectRoles: ConnectionRole[];
   canEdit: boolean;
   previewClearToken?: number;
   onAddPerson: (person: PersonDraft) => void;
@@ -38,16 +42,16 @@ interface SidebarProps {
   onUpdateConnectionTags: (
     connectionId: string,
     kinds: ConnectionKind[],
-    roles: Role[],
+    roles: ConnectionRole[],
   ) => void;
   onStartConnect: (personId: string | null) => void;
   onConnectKindsChange: (kinds: ConnectionKind[]) => void;
-  onConnectRolesChange: (roles: Role[]) => void;
+  onConnectRolesChange: (roles: ConnectionRole[]) => void;
   onCreateConnection: (
     sourceId: string,
     targetId: string,
     kinds: ConnectionKind[],
-    roles: Role[],
+    roles: ConnectionRole[],
   ) => void;
   statusMessage: string | null;
 }
@@ -63,28 +67,34 @@ function platformLabel(platform: Person["platform"]): string {
   return "Profil";
 }
 
-function RoleMultiSelect({
+function RoleMultiSelect<T extends string>({
   value,
   onChange,
   disabled,
   legend = "Funktionen (Mehrfachauswahl)",
   allowEmpty = false,
   hint = "Mehrere Häkchen möglich",
+  options,
+  colors,
+  labels,
 }: {
-  value: Role[];
-  onChange: (roles: Role[]) => void;
+  value: T[];
+  onChange: (roles: T[]) => void;
   disabled?: boolean;
   legend?: string;
   /** When true, all roles can be unchecked (edge tags). */
   allowEmpty?: boolean;
   hint?: string;
+  options: readonly T[];
+  colors: Record<T, string>;
+  labels: Record<T, string>;
 }) {
   return (
     <fieldset className="role-fieldset" disabled={disabled}>
       <legend>{legend}</legend>
       <p className="role-multi-hint">{hint}</p>
       <div className="role-checks" role="group" aria-label={legend}>
-        {ALL_ROLES.map((r) => {
+        {options.map((r) => {
           const selected = value.includes(r);
           const inputId = `role-${legend.replace(/\W+/g, "-").toLowerCase()}-${r}`;
           return (
@@ -95,8 +105,8 @@ function RoleMultiSelect({
               style={
                 selected
                   ? {
-                      borderColor: ROLE_COLORS[r],
-                      boxShadow: `0 0 0 2px ${ROLE_COLORS[r]}33`,
+                      borderColor: colors[r],
+                      boxShadow: `0 0 0 2px ${colors[r]}33`,
                     }
                   : undefined
               }
@@ -110,10 +120,10 @@ function RoleMultiSelect({
               />
               <span
                 className="swatch"
-                style={{ background: ROLE_COLORS[r] }}
+                style={{ background: colors[r] }}
                 aria-hidden="true"
               />
-              <span>{ROLE_LABELS[r]}</span>
+              <span>{labels[r]}</span>
             </label>
           );
         })}
@@ -400,6 +410,9 @@ export function Sidebar({
               value={roles}
               onChange={setRoles}
               disabled={!canEdit}
+              options={ALL_ROLES}
+              colors={ROLE_COLORS}
+              labels={ROLE_LABELS}
             />
 
             <div
@@ -537,10 +550,10 @@ export function Sidebar({
                           key={`r-${r}`}
                           type="button"
                           className="cat-pill cat-pill-role-tag cat-pill-toggle"
-                          style={{ background: ROLE_COLORS[r] }}
+                          style={{ background: CONNECTION_ROLE_COLORS[r] }}
                           title={
                             canEdit
-                              ? `${ROLE_LABELS[r]} abwählen`
+                              ? `${CONNECTION_ROLE_LABELS[r]} abwählen`
                               : "Rollen-Tag"
                           }
                           disabled={!canEdit}
@@ -549,7 +562,7 @@ export function Sidebar({
                             onUpdateConnectionTags(c.id, c.kinds, nextRoles);
                           }}
                         >
-                          {ROLE_LABELS[r]}
+                          {CONNECTION_ROLE_LABELS[r]}
                           {canEdit ? (
                             <span className="pill-x" aria-hidden="true">
                               ×
@@ -600,8 +613,11 @@ export function Sidebar({
             onChange={onConnectRolesChange}
             disabled={!canEdit}
             allowEmpty
+            options={ALL_CONNECTION_ROLES}
+            colors={CONNECTION_ROLE_COLORS}
+            labels={CONNECTION_ROLE_LABELS}
             legend="Rollen-Tags an der Kante (Mehrfachauswahl)"
-            hint="Optional — z.B. Fren + Twitter neben Beziehungstypen"
+            hint="Optional — z.B. Fren, Ex-Mod oder gebannt neben Beziehungstypen"
           />
 
           <label>
@@ -694,6 +710,9 @@ export function Sidebar({
           <RoleMultiSelect
             value={connectFrom.roles}
             onChange={(next) => onUpdateRoles(connectFrom.id, next)}
+            options={ALL_ROLES}
+            colors={ROLE_COLORS}
+            labels={ROLE_LABELS}
             legend="Rollen bearbeiten"
           />
           <div className="btn-row">
@@ -772,6 +791,9 @@ export function Sidebar({
                     <RoleMultiSelect
                       value={p.roles}
                       onChange={(next) => onUpdateRoles(p.id, next)}
+                      options={ALL_ROLES}
+                      colors={ROLE_COLORS}
+                      labels={ROLE_LABELS}
                       legend={`Rollen · ${p.name}`}
                     />
                     <button

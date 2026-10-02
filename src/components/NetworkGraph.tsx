@@ -8,7 +8,10 @@ import {
   DEFAULT_EDGE_CURVATURE,
   indexParallelEdgesIndex,
 } from "@sigma/edge-curve";
-import { createEdgeArrowProgram } from "sigma/rendering";
+import {
+  createEdgeArrowProgram,
+  createEdgeDoubleArrowProgram,
+} from "sigma/rendering";
 
 /** ~56% larger arrow heads than sigma defaults (2.5 / 2); +25% over prior 3.125 / 2.5. */
 const ARROW_HEAD = {
@@ -133,6 +136,103 @@ function parsePersonDraft(raw: string): PersonDraft | null {
   } catch {
     return null;
   }
+}
+
+
+type DirectedStrand = {
+  source: string;
+  target: string;
+  text: string;
+  color: string;
+};
+
+type VisualStrand = DirectedStrand & {
+  key: string;
+  bidirectional: boolean;
+};
+
+/**
+ * Collapse reciprocal strands of the same label (Fren↔Fren) into one
+ * double-headed edge. Different labels stay separate colored strands.
+ * Storage remains two directed connections; this is visual only.
+ */
+function visualStrands(connections: Connection[]): VisualStrand[] {
+  const buckets = new Map<string, DirectedStrand[]>();
+  for (const conn of connections) {
+    const kinds = Array.isArray(conn.kinds) ? conn.kinds : [];
+    const roles = Array.isArray(conn.roles) ? conn.roles : [];
+    const tags = connectionTagSegments(kinds, roles);
+    const strands: ConnectionTagSegment[] =
+      tags.length > 0 ? tags : [{ text: "—", color: "#94a3b8" }];
+    for (const tag of strands) {
+      const lo = conn.source < conn.target ? conn.source : conn.target;
+      const hi = conn.source < conn.target ? conn.target : conn.source;
+      const bucketKey = `${lo}\0${hi}\0${tag.text}`;
+      const list = buckets.get(bucketKey);
+      const strand: DirectedStrand = {
+        source: conn.source,
+        target: conn.target,
+        text: tag.text,
+        color: tag.color,
+      };
+      if (list) list.push(strand);
+      else buckets.set(bucketKey, [strand]);
+    }
+  }
+
+  const visual: VisualStrand[] = [];
+  for (const [bucketKey, items] of buckets) {
+    const [lo, hi] = bucketKey.split("\0");
+    const forward = items.filter((s) => s.source === lo && s.target === hi);
+    const backward = items.filter((s) => s.source === hi && s.target === lo);
+    const same = items.filter(
+      (s) => !(s.source === lo && s.target === hi) && !(s.source === hi && s.target === lo),
+    );
+    const pairs = Math.min(forward.length, backward.length);
+    const slug = `${lo}__${hi}__${items[0]?.text ?? ""}`;
+    for (let i = 0; i < pairs; i += 1) {
+      const tag = forward[i] ?? backward[i]!;
+      visual.push({
+        key: `both__${slug}__${i}`,
+        source: lo!,
+        target: hi!,
+        text: tag.text,
+        color: tag.color,
+        bidirectional: true,
+      });
+    }
+    forward.slice(pairs).forEach((tag, i) => {
+      visual.push({
+        key: `dir__${tag.source}__${tag.target}__${tag.text}__f${i}`,
+        source: tag.source,
+        target: tag.target,
+        text: tag.text,
+        color: tag.color,
+        bidirectional: false,
+      });
+    });
+    backward.slice(pairs).forEach((tag, i) => {
+      visual.push({
+        key: `dir__${tag.source}__${tag.target}__${tag.text}__b${i}`,
+        source: tag.source,
+        target: tag.target,
+        text: tag.text,
+        color: tag.color,
+        bidirectional: false,
+      });
+    });
+    same.forEach((tag, i) => {
+      visual.push({
+        key: `dir__${tag.source}__${tag.target}__${tag.text}__s${i}`,
+        source: tag.source,
+        target: tag.target,
+        text: tag.text,
+        color: tag.color,
+        bidirectional: false,
+      });
+    });
+  }
+  return visual;
 }
 
 function getCurvature(index: number, maxIndex: number): number {
@@ -350,8 +450,13 @@ function drawColoredEdgeLabel(
  * on its own parallel curve (textBaseline middle at Bezier t=0.5).
  */
 const StraightArrowProgram = createEdgeArrowProgram(ARROW_HEAD);
+const StraightDoubleArrowProgram = createEdgeDoubleArrowProgram(ARROW_HEAD);
 const CurvedArrowProgram = createEdgeCurveProgram({
   arrowHead: { extremity: "target", ...ARROW_HEAD },
+  drawLabel: drawColoredEdgeLabel,
+});
+const CurvedDoubleArrowProgram = createEdgeCurveProgram({
+  arrowHead: { extremity: "both", ...ARROW_HEAD },
   drawLabel: drawColoredEdgeLabel,
 });
 
@@ -433,7 +538,9 @@ export function NetworkGraph({
       },
       edgeProgramClasses: {
         straight: StraightArrowProgram,
+        "straight-both": StraightDoubleArrowProgram,
         curved: CurvedArrowProgram,
+        "curved-both": CurvedDoubleArrowProgram,
       },
       defaultDrawNodeLabel: drawAttachedNodeLabel,
       defaultDrawEdgeLabel: drawColoredEdgeLabel,
@@ -575,30 +682,31 @@ export function NetworkGraph({
       graph.dropEdge(edge);
     }
 
-    // One visual strand per kind/role — each tag label sits on its own colored curve
-    for (const conn of visibleConnections) {
-      if (!graph.hasNode(conn.source) || !graph.hasNode(conn.target)) continue;
-      const kinds = Array.isArray(conn.kinds) ? conn.kinds : [];
-      const roles = Array.isArray(conn.roles) ? conn.roles : [];
-      const tags = connectionTagSegments(kinds, roles);
-      const strands: ConnectionTagSegment[] =
-        tags.length > 0 ? tags : [{ text: "—", color: "#94a3b8" }];
-      const n = strands.length;
-      const strandSize = n > 1 ? 2.0 : 2.4;
-
-      // kinds first, then roles — same order as connectionTagSegments
-      strands.forEach((tag, i) => {
-        const key = n === 1 ? conn.id : `${conn.id}__strand_${i}`;
-        const hasLabel = tag.text !== "—";
-        // One edge attribute pair per strand: label+color alone drive painting
-        // (avoids Mod-kind vs Mod-role label collisions and mismatched rebuilds).
-        graph.addEdgeWithKey(key, conn.source, conn.target, {
-          size: strandSize,
-          color: tag.color,
-          label: hasLabel ? tag.text : null,
-          type: "straight" as const,
-          forceLabel: hasLabel,
-        });
+    // One visual strand per kind/role. Reciprocal pairs of the same label
+    // (A→B Fren and B→A Fren) collapse to one line with arrowheads on both ends.
+    // Different kinds stay separate colored strands. Directed storage is unchanged.
+    const strands = visualStrands(visibleConnections).filter(
+      (strand) => graph.hasNode(strand.source) && graph.hasNode(strand.target),
+    );
+    const pairCounts = new Map<string, number>();
+    for (const strand of strands) {
+      const lo = strand.source < strand.target ? strand.source : strand.target;
+      const hi = strand.source < strand.target ? strand.target : strand.source;
+      const pair = `${lo}\0${hi}`;
+      pairCounts.set(pair, (pairCounts.get(pair) ?? 0) + 1);
+    }
+    for (const strand of strands) {
+      const lo = strand.source < strand.target ? strand.source : strand.target;
+      const hi = strand.source < strand.target ? strand.target : strand.source;
+      const n = pairCounts.get(`${lo}\0${hi}`) ?? 1;
+      const hasLabel = strand.text !== "—";
+      graph.addEdgeWithKey(strand.key, strand.source, strand.target, {
+        size: n > 1 ? 2.0 : 2.4,
+        color: strand.color,
+        label: hasLabel ? strand.text : null,
+        type: strand.bidirectional ? "straight-both" : "straight",
+        bidirectional: strand.bidirectional,
+        forceLabel: hasLabel,
       });
     }
 
@@ -615,28 +723,32 @@ export function NetworkGraph({
           parallelIndex,
           parallelMinIndex,
           parallelMaxIndex,
+          bidirectional,
         }: {
           parallelIndex?: number | null;
           parallelMinIndex?: number | null;
           parallelMaxIndex?: number | null;
+          bidirectional?: boolean;
         },
       ) => {
+        const curvedType = bidirectional ? "curved-both" : "curved";
+        const straightType = bidirectional ? "straight-both" : "straight";
         if (typeof parallelMinIndex === "number") {
           const idx = parallelIndex ?? 0;
           // Always curved when parallels exist so each label sits on its strand
           // (index 0 may have curvature 0 = straight Bezier, still same painter).
           graph.mergeEdgeAttributes(edge, {
-            type: "curved",
+            type: curvedType,
             curvature: getCurvature(idx, parallelMaxIndex ?? 1),
           });
         } else if (typeof parallelIndex === "number") {
           graph.mergeEdgeAttributes(edge, {
-            type: "curved",
+            type: curvedType,
             curvature: getCurvature(parallelIndex, parallelMaxIndex ?? 1),
           });
         } else {
           graph.mergeEdgeAttributes(edge, {
-            type: "straight",
+            type: straightType,
             curvature: 0,
           });
         }

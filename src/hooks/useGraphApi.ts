@@ -1,5 +1,5 @@
-import type { Connection, ConnectionKind, Person, Role } from "../types";
-import { normalizeRoles } from "../types";
+import type { Connection, ConnectionKind, ConnectionRole, Person, Role } from "../types";
+import { normalizeConnectionRoles, normalizeRoles } from "../types";
 
 export async function fetchGraph(): Promise<{
   people: Person[];
@@ -23,7 +23,7 @@ export async function fetchGraph(): Promise<{
     })),
     connections: data.connections.map((connection) => ({
       ...connection,
-      roles: normalizeRoles(connection.roles),
+      roles: normalizeConnectionRoles(connection.roles),
     })),
   };
 }
@@ -94,7 +94,7 @@ export async function apiAddConnection(
   source: string,
   target: string,
   kinds: ConnectionKind[],
-  roles: Role[] = [],
+  roles: ConnectionRole[] = [],
 ): Promise<Connection> {
   const res = await fetch("/api/graph/connections", {
     method: "POST",
@@ -117,7 +117,7 @@ export async function apiAddConnection(
 export async function apiUpdateConnection(
   connectionId: string,
   kinds: ConnectionKind[],
-  roles: Role[],
+  roles: ConnectionRole[],
 ): Promise<{ connection: Connection; deleted?: boolean }> {
   const res = await fetch(
     `/api/graph/connections/${encodeURIComponent(connectionId)}`,

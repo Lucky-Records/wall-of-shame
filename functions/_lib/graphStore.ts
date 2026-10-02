@@ -21,14 +21,17 @@ export type Person = {
   y?: number;
 };
 
+/** Edge tags. Ex-Mod and gebannt are not person roles. */
+export type ConnectionRole = Role | "Ex-Mod" | "gebannt";
+
 export type Connection = {
   id: string;
   source: string;
   target: string;
   /** Relationship types (multi). */
   kinds: ConnectionKind[];
-  /** Optional person-role tags on the edge (multi). */
-  roles: Role[];
+  /** Optional role tags on the edge (multi). */
+  roles: ConnectionRole[];
 };
 
 export type GraphData = {
@@ -42,6 +45,14 @@ export interface GraphStore {
 }
 
 const ROLES = new Set<Role>(["Streamer", "Mod", "Twitter", "Fren"]);
+const EDGE_ROLES = new Set<ConnectionRole>([
+  "Streamer",
+  "Mod",
+  "Twitter",
+  "Fren",
+  "Ex-Mod",
+  "gebannt",
+]);
 const PLATFORMS = new Set(["twitch", "twitter", "x", "unknown"]);
 const CONNECTION_KINDS = new Set<ConnectionKind>([
   "Mod",
@@ -168,15 +179,18 @@ export function normalizeKinds(raw: unknown, legacyKind?: unknown): ConnectionKi
   return out;
 }
 
-export function normalizeEdgeRoles(raw: unknown): Role[] {
-  const out: Role[] = [];
-  const seen = new Set<Role>();
+export function isConnectionRole(value: unknown): value is ConnectionRole {
+  return typeof value === "string" && EDGE_ROLES.has(value as ConnectionRole);
+}
+
+export function normalizeEdgeRoles(raw: unknown): ConnectionRole[] {
+  const out: ConnectionRole[] = [];
+  const seen = new Set<ConnectionRole>();
   if (Array.isArray(raw)) {
     for (const item of raw) {
-      const role = coerceRole(item);
-      if (role && !seen.has(role)) {
-        seen.add(role);
-        out.push(role);
+      if (isConnectionRole(item) && !seen.has(item)) {
+        seen.add(item);
+        out.push(item);
       }
     }
   }

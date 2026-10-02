@@ -23,14 +23,17 @@ export interface Person {
   y?: number;
 }
 
+/** Roles that can be tagged on a connection, including ones that are not person roles. */
+export type ConnectionRole = Role | "Ex-Mod" | "gebannt";
+
 export interface Connection {
   id: string;
   source: string;
   target: string;
   /** Relationship types — multi-select (Mod / Fren / Streamerkollege). */
   kinds: ConnectionKind[];
-  /** Optional person-role tags on the edge — multi-select. */
-  roles: Role[];
+  /** Optional role tags on the edge — multi-select. Not limited to person roles. */
+  roles: ConnectionRole[];
 }
 
 export interface GraphPosition {
@@ -54,6 +57,13 @@ export const ALL_ROLES: Role[] = [
   "Fren",
 ];
 
+/** Edge role tags. Person filters stay on ALL_ROLES only. */
+export const ALL_CONNECTION_ROLES: ConnectionRole[] = [
+  ...ALL_ROLES,
+  "Ex-Mod",
+  "gebannt",
+];
+
 /** @deprecated Use ALL_ROLES */
 export const ALL_CATEGORIES = ALL_ROLES;
 
@@ -72,6 +82,18 @@ export const ROLE_LABELS: Record<Role, string> = {
   Mod: "Mod",
   Twitter: "Twitter",
   Fren: "Fren",
+};
+
+export const CONNECTION_ROLE_COLORS: Record<ConnectionRole, string> = {
+  ...ROLE_COLORS,
+  "Ex-Mod": "#fb923c",
+  gebannt: "#fb7185",
+};
+
+export const CONNECTION_ROLE_LABELS: Record<ConnectionRole, string> = {
+  ...ROLE_LABELS,
+  "Ex-Mod": "Ex-Mod",
+  gebannt: "gebannt",
 };
 
 /** @deprecated Use ROLE_LABELS */
@@ -107,11 +129,28 @@ export function isRole(value: unknown): value is Role {
   return typeof value === "string" && ALL_ROLES.includes(value as Role);
 }
 
+export function isConnectionRole(value: unknown): value is ConnectionRole {
+  return (
+    typeof value === "string" &&
+    ALL_CONNECTION_ROLES.includes(value as ConnectionRole)
+  );
+}
+
 export function normalizeRoles(raw: unknown): Role[] {
   if (!Array.isArray(raw)) return [];
   const roles: Role[] = [];
   for (const value of raw) {
     if (isRole(value) && !roles.includes(value)) roles.push(value);
+  }
+  return roles;
+}
+
+/** Keep Ex-Mod and gebannt on edges; still drop unknown legacy values. */
+export function normalizeConnectionRoles(raw: unknown): ConnectionRole[] {
+  if (!Array.isArray(raw)) return [];
+  const roles: ConnectionRole[] = [];
+  for (const value of raw) {
+    if (isConnectionRole(value) && !roles.includes(value)) roles.push(value);
   }
   return roles;
 }
@@ -144,7 +183,7 @@ export type ConnectionTagSegment = {
 /** Kind + role tags with badge colors for graph edge labels. */
 export function connectionTagSegments(
   kinds: ConnectionKind[],
-  roles: Role[],
+  roles: ConnectionRole[],
 ): ConnectionTagSegment[] {
   return [
     ...kinds.map((k) => ({
@@ -152,15 +191,15 @@ export function connectionTagSegments(
       color: CONNECTION_KIND_COLORS[k],
     })),
     ...roles.map((r) => ({
-      text: ROLE_LABELS[r],
-      color: ROLE_COLORS[r],
+      text: CONNECTION_ROLE_LABELS[r],
+      color: CONNECTION_ROLE_COLORS[r],
     })),
   ];
 }
 
 export function formatConnectionTags(
   kinds: ConnectionKind[],
-  roles: Role[],
+  roles: ConnectionRole[],
 ): string {
   const parts = connectionTagSegments(kinds, roles).map((s) => s.text);
   return parts.length ? parts.join(" · ") : "—";
@@ -168,7 +207,7 @@ export function formatConnectionTags(
 
 export function connectionEdgeColor(
   kinds: ConnectionKind[],
-  roles: Role[],
+  roles: ConnectionRole[],
 ): string {
   return connectionEdgeColors(kinds, roles)[0]!;
 }
@@ -176,7 +215,7 @@ export function connectionEdgeColor(
 /** One badge color per selected kind/role — used for multi-strand edges. */
 export function connectionEdgeColors(
   kinds: ConnectionKind[],
-  roles: Role[],
+  roles: ConnectionRole[],
 ): string[] {
   const colors = connectionTagSegments(kinds, roles).map((s) => s.color);
   return colors.length ? colors : ["#94a3b8"];

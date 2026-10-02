@@ -15,6 +15,7 @@ import {
 import type {
   Connection,
   ConnectionKind,
+  ConnectionRole,
   GraphPosition,
   Person,
   PersonDraft,
@@ -51,7 +52,7 @@ export default function App() {
   const [connectKinds, setConnectKinds] = useState<ConnectionKind[]>([
     DEFAULT_CONNECTION_KIND,
   ]);
-  const [connectRoles, setConnectRoles] = useState<Role[]>([]);
+  const [connectRoles, setConnectRoles] = useState<ConnectionRole[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [positionHints, setPositionHints] = useState<
     Record<string, GraphPosition>
@@ -220,7 +221,7 @@ export default function App() {
       sourceId: string,
       targetId: string,
       kinds: ConnectionKind[],
-      roles: Role[],
+      roles: ConnectionRole[],
     ) => {
       if (sourceId === targetId) {
         flash("Eine Person kann nicht mit sich selbst verbunden werden.");
@@ -293,7 +294,7 @@ export default function App() {
     async (
       connectionId: string,
       kinds: ConnectionKind[],
-      roles: Role[],
+      roles: ConnectionRole[],
     ) => {
       const conn = connections.find((c) => c.id === connectionId);
       if (!conn) return;
