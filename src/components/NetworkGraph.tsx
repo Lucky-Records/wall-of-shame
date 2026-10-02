@@ -6,7 +6,6 @@ import { NodeImageProgram } from "@sigma/node-image";
 import {
   createEdgeCurveProgram,
   DEFAULT_EDGE_CURVATURE,
-  indexParallelEdgesIndex,
 } from "@sigma/edge-curve";
 import {
   createEdgeArrowProgram,
@@ -152,12 +151,11 @@ type VisualStrand = DirectedStrand & {
 };
 
 /**
- * One visual strand per label between a pair of people.
- * Fren as a kind and Fren as a role are the same yellow label, so they must
- * not become two parallel curves. If that label exists in both directions,
- * draw a single curve with arrowheads on both ends. A label that exists in
- * only one direction stays a single arrow. Different labels (Fren vs
- * Streamerkollege) stay separate colored strands.
+ * N distinct labels between a pair = N strands.
+ * The same text is one strand even when it arrives twice (kind Fren and role
+ * Fren, or the same label in both directions). A reciprocal label is one
+ * curve with arrowheads on both ends. Different labels stay separate colored
+ * strands — Mod, Fren and Streamerkollege are three lines, not two.
  * Storage remains directed connections; this is visual only.
  */
 function visualStrands(connections: Connection[]): VisualStrand[] {
@@ -228,6 +226,23 @@ function getCurvature(index: number, maxIndex: number): number {
     (1 - Math.exp(-maxIndex / amplitude)) *
     DEFAULT_EDGE_CURVATURE;
   return (maxCurvature * index) / Math.max(maxIndex, 1e-6);
+}
+
+/**
+ * One curvature per strand of an unordered pair, in stable label order.
+ * Index 0 must not go to the curve shader: GLSL sign(0) collapses the quad
+ * and the stroke disappears while the label still paints (the "3 links, 2
+ * lines" bug). That center strand is drawn straight instead.
+ */
+function curvaturesForStrandCount(count: number): number[] {
+  if (count <= 1) return [0];
+  const mid = (count - 1) / 2;
+  const values: number[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const index = i - mid;
+    values.push(index === 0 ? 0 : getCurvature(index, mid));
+  }
+  return values;
 }
 
 function roundRect(
@@ -693,50 +708,45 @@ export function NetworkGraph({
       });
     }
 
-    indexParallelEdgesIndex(graph, {
-      edgeIndexAttribute: "parallelIndex",
-      edgeMinIndexAttribute: "parallelMinIndex",
-      edgeMaxIndexAttribute: "parallelMaxIndex",
-    });
-
-    graph.forEachEdge(
-      (
-        edge,
-        {
-          parallelIndex,
-          parallelMinIndex,
-          parallelMaxIndex,
-          bidirectional,
-        }: {
-          parallelIndex?: number | null;
-          parallelMinIndex?: number | null;
-          parallelMaxIndex?: number | null;
-          bidirectional?: boolean;
-        },
-      ) => {
-        const curvedType = bidirectional ? "curved-both" : "curved";
-        const straightType = bidirectional ? "straight-both" : "straight";
-        if (typeof parallelMinIndex === "number") {
-          const idx = parallelIndex ?? 0;
-          // Always curved when parallels exist so each label sits on its strand
-          // (index 0 may have curvature 0 = straight Bezier, still same painter).
-          graph.mergeEdgeAttributes(edge, {
-            type: curvedType,
-            curvature: getCurvature(idx, parallelMaxIndex ?? 1),
-          });
-        } else if (typeof parallelIndex === "number") {
-          graph.mergeEdgeAttributes(edge, {
-            type: curvedType,
-            curvature: getCurvature(parallelIndex, parallelMaxIndex ?? 1),
-          });
-        } else {
-          graph.mergeEdgeAttributes(edge, {
-            type: straightType,
-            curvature: 0,
-          });
-        }
-      },
-    );
+    // Space every distinct label of a pair together, ignoring arrow direction.
+    // indexParallelEdgesIndex splits by direction and gives the odd middle
+    // strand curvature 0, which the curve shader does not draw.
+    const strandByKey = new Map(strands.map((strand) => [strand.key, strand]));
+    const byPair = new Map<string, string[]>();
+    for (const strand of strands) {
+      const lo = strand.source < strand.target ? strand.source : strand.target;
+      const hi = strand.source < strand.target ? strand.target : strand.source;
+      const pair = `${lo}\0${hi}`;
+      const list = byPair.get(pair);
+      if (list) list.push(strand.key);
+      else byPair.set(pair, [strand.key]);
+    }
+    for (const keys of byPair.values()) {
+      keys.sort((a, b) => {
+        const left = strandByKey.get(a);
+        const right = strandByKey.get(b);
+        const byText = (left?.text ?? "").localeCompare(right?.text ?? "");
+        return byText || a.localeCompare(b);
+      });
+      const curves = curvaturesForStrandCount(keys.length);
+      keys.forEach((key, i) => {
+        const strand = strandByKey.get(key);
+        if (!strand) return;
+        const curvature = curves[i] ?? 0;
+        // curvature 0 is the straight center strand (or a lone edge).
+        const straight = curvature === 0;
+        graph.mergeEdgeAttributes(key, {
+          type: straight
+            ? strand.bidirectional
+              ? "straight-both"
+              : "straight"
+            : strand.bidirectional
+              ? "curved-both"
+              : "curved",
+          curvature,
+        });
+      });
+    }
 
     const unpinnedNew = newlyAdded.filter((id) => {
       const person = visiblePeople.find((p) => p.id === id);
