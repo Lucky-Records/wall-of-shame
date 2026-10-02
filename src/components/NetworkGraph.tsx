@@ -10,10 +10,10 @@ import {
 } from "@sigma/edge-curve";
 import { createEdgeArrowProgram } from "sigma/rendering";
 
-/** ~25% larger arrow heads than sigma defaults (2.5 / 2). */
+/** ~56% larger arrow heads than sigma defaults (2.5 / 2); +25% over prior 3.125 / 2.5. */
 const ARROW_HEAD = {
-  lengthToThicknessRatio: 3.125,
-  widenessToThicknessRatio: 2.5,
+  lengthToThicknessRatio: 3.90625,
+  widenessToThicknessRatio: 3.125,
 } as const;
 import type { Settings } from "sigma/settings";
 import type {
