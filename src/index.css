@@ -768,37 +768,6 @@ select:disabled {
   cursor: grabbing;
 }
 
-.node-role-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  overflow: hidden;
-}
-
-.node-role-badge-wrap {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-  justify-content: center;
-  max-width: 140px;
-}
-
-.node-role-badge {
-  display: inline-flex;
-  border-radius: 999px;
-  padding: 0.05rem 0.4rem;
-  font-size: 0.62rem;
-  font-weight: 700;
-  color: #0b1020;
-  line-height: 1.3;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-  white-space: nowrap;
-}
-
 .role-inline-pills {
   display: inline-flex;
   flex-wrap: wrap;
@@ -895,39 +864,3 @@ select:disabled {
   outline-offset: 1px;
 }
 
-/* Name above roles on the board */
-.node-label-stack {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  max-width: 160px;
-  pointer-events: none;
-}
-
-.node-name {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #e2e8f0;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-  text-align: center;
-  line-height: 1.2;
-  white-space: nowrap;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.node-role-badge-wrap {
-  position: relative;
-  top: auto;
-  left: auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-  justify-content: center;
-  max-width: 160px;
-}

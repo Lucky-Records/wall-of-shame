@@ -11,6 +11,7 @@ import {
   indexParallelEdgesIndex,
 } from "@sigma/edge-curve";
 import { EdgeArrowProgram } from "sigma/rendering";
+import type { Settings } from "sigma/settings";
 import type {
   Connection,
   GraphPosition,
@@ -39,13 +40,13 @@ interface NetworkGraphProps {
   onNodeMove: (personId: string, position: GraphPosition) => void;
 }
 
-type BadgePos = {
-  id: string;
-  name: string;
-  roles: Role[];
+type NodeLabelData = {
+  label: string | null;
   x: number;
   y: number;
   size: number;
+  color: string;
+  roles?: Role[];
 };
 
 function seededPosition(id: string, index: number, total: number) {
@@ -143,6 +144,95 @@ function getCurvature(index: number, maxIndex: number): number {
   return DEFAULT_EDGE_CURVATURE * (index / Math.max(Math.abs(maxIndex), 1));
 }
 
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  const radius = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+}
+
+/**
+ * Draw name + role badges directly under the avatar in viewport space.
+ * Sigma already converts x/y/size to viewport pixels before calling this.
+ * Icon, name and roles therefore move as one painted unit.
+ */
+function drawAttachedNodeLabel(
+  context: CanvasRenderingContext2D,
+  data: NodeLabelData,
+  settings: Settings,
+) {
+  const name = data.label;
+  if (!name) return;
+
+  const roles = Array.isArray(data.roles) ? data.roles : [];
+  const font = settings.labelFont || "Inter, system-ui, sans-serif";
+  const nameSize = settings.labelSize || 12;
+  const nameWeight = settings.labelWeight || "600";
+  const nameColor =
+    typeof settings.labelColor === "object" &&
+    settings.labelColor &&
+    "color" in settings.labelColor &&
+    typeof settings.labelColor.color === "string"
+      ? settings.labelColor.color
+      : "#e2e8f0";
+
+  const gap = 5;
+  let cursorY = data.y + data.size + gap;
+
+  context.save();
+  context.textAlign = "center";
+  context.textBaseline = "top";
+  context.font = `${nameWeight} ${nameSize}px ${font}`;
+  context.lineWidth = 3;
+  context.strokeStyle = "rgba(11, 16, 32, 0.9)";
+  context.fillStyle = nameColor;
+  context.strokeText(name, data.x, cursorY);
+  context.fillText(name, data.x, cursorY);
+  cursorY += nameSize + 4;
+
+  if (roles.length) {
+    const badgeFontSize = Math.max(9, Math.round(nameSize * 0.85));
+    const padX = 6;
+    const padY = 2;
+    const badgeH = badgeFontSize + padY * 2;
+    const gapX = 4;
+    context.font = `700 ${badgeFontSize}px ${font}`;
+
+    const widths = roles.map(
+      (role) => context.measureText(ROLE_LABELS[role]).width + padX * 2,
+    );
+    const totalW =
+      widths.reduce((sum, w) => sum + w, 0) + gapX * Math.max(roles.length - 1, 0);
+    let cursorX = data.x - totalW / 2;
+
+    roles.forEach((role, i) => {
+      const w = widths[i]!;
+      const label = ROLE_LABELS[role];
+      context.fillStyle = ROLE_COLORS[role];
+      roundRect(context, cursorX, cursorY, w, badgeH, badgeH / 2);
+      context.fill();
+      context.fillStyle = "#0b1020";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(label, cursorX + w / 2, cursorY + badgeH / 2);
+      cursorX += w + gapX;
+    });
+  }
+
+  context.restore();
+}
+
 export function NetworkGraph({
   people,
   connections,
@@ -161,7 +251,6 @@ export function NetworkGraph({
   const onPersonDropRef = useRef(onPersonDrop);
   const onNodeMoveRef = useRef(onNodeMove);
   const positionHintsRef = useRef(positionHints);
-  const peopleRef = useRef(people);
   const draggedNodeRef = useRef<string | null>(null);
   const dragMovedRef = useRef(false);
   const skipClickRef = useRef(false);
@@ -169,11 +258,9 @@ export function NetworkGraph({
   onPersonDropRef.current = onPersonDrop;
   onNodeMoveRef.current = onNodeMove;
   positionHintsRef.current = positionHints;
-  peopleRef.current = people;
 
   const [dragOver, setDragOver] = useState(false);
   const [draggingNode, setDraggingNode] = useState(false);
-  const [badges, setBadges] = useState<BadgePos[]>([]);
 
   const visiblePeople = useMemo(
     () => people.filter((p) => personMatchesRoles(p, visibleRoles)),
@@ -202,13 +289,15 @@ export function NetworkGraph({
 
     const sigma = new Sigma(graph, containerRef.current, {
       allowInvalidContainer: true,
-      // Name + roles rendered in HTML overlay under the avatar
-      renderLabels: false,
+      // Name + roles painted under the avatar in the same canvas pass
+      renderLabels: true,
       renderEdgeLabels: true,
       labelColor: { color: "#e2e8f0" },
       labelSize: 12,
       labelWeight: "600",
       labelFont: "Inter, system-ui, sans-serif",
+      labelRenderedSizeThreshold: 0,
+      labelDensity: 2,
       defaultNodeColor: "#94a3b8",
       defaultEdgeColor: "#475569",
       defaultEdgeType: "straight",
@@ -224,31 +313,13 @@ export function NetworkGraph({
         straight: EdgeArrowProgram,
         curved: EdgeCurvedArrowProgram,
       },
-      defaultDrawEdgeLabel: createDrawCurvedEdgeLabel(DEFAULT_EDGE_CURVE_PROGRAM_OPTIONS),
+      defaultDrawNodeLabel: drawAttachedNodeLabel,
+      defaultDrawEdgeLabel: createDrawCurvedEdgeLabel(
+        DEFAULT_EDGE_CURVE_PROGRAM_OPTIONS,
+      ),
     });
 
     sigmaRef.current = sigma;
-
-    function syncBadges() {
-      const s = sigmaRef.current;
-      if (!s) return;
-      const next: BadgePos[] = [];
-      for (const person of peopleRef.current) {
-        if (!s.getGraph().hasNode(person.id)) continue;
-        const display = s.getNodeDisplayData(person.id);
-        if (!display || display.hidden) continue;
-        const viewport = s.graphToViewport({ x: display.x, y: display.y });
-        next.push({
-          id: person.id,
-          name: person.name,
-          roles: person.roles,
-          x: viewport.x,
-          y: viewport.y,
-          size: display.size,
-        });
-      }
-      setBadges(next);
-    }
 
     function endNodeDrag() {
       const nodeId = draggedNodeRef.current;
@@ -272,7 +343,6 @@ export function NetworkGraph({
         skipClickRef.current = true;
         onNodeMoveRef.current(nodeId, { x, y });
       }
-      syncBadges();
     }
 
     sigma.on("downNode", ({ node, event }) => {
@@ -292,7 +362,8 @@ export function NetworkGraph({
       graphRef.current.setNodeAttribute(nodeId, "y", pos.y);
       dragMovedRef.current = true;
       event.preventSigmaDefault();
-      syncBadges();
+      // Refresh so attached canvas labels track the dragged avatar
+      sigma.refresh({ skipIndexation: true });
     });
 
     sigma.on("upNode", () => {
@@ -310,8 +381,6 @@ export function NetworkGraph({
       }
       onNodeClickRef.current(node);
     });
-
-    sigma.on("afterRender", syncBadges);
 
     return () => {
       sigma.kill();
@@ -360,6 +429,7 @@ export function NetworkGraph({
           image: person.avatarUrl,
           type: "image",
           roles: person.roles,
+          forceLabel: true,
         });
         if (pinned) {
           graph.mergeNodeAttributes(person.id, { x: pos.x, y: pos.y });
@@ -374,6 +444,7 @@ export function NetworkGraph({
           image: person.avatarUrl,
           type: "image",
           roles: person.roles,
+          forceLabel: true,
         });
         newlyAdded.push(person.id);
       }
@@ -394,6 +465,7 @@ export function NetworkGraph({
         kinds,
         roles,
         type: "straight" as const,
+        forceLabel: true,
       };
     }
 
@@ -548,31 +620,6 @@ export function NetworkGraph({
       onDrop={handleDrop}
     >
       <div className="graph-canvas" ref={containerRef} />
-      <div className="node-role-overlay" aria-hidden="true">
-        {badges.map((b) => (
-          <div
-            key={b.id}
-            className="node-label-stack"
-            style={{
-              transform: `translate(${b.x}px, ${b.y + b.size + 6}px) translate(-50%, 0)`,
-            }}
-          >
-            <div className="node-name">{b.name}</div>
-            <div className="node-role-badge-wrap">
-              {b.roles.map((role) => (
-                <span
-                  key={role}
-                  className="node-role-badge"
-                  style={{ background: ROLE_COLORS[role] }}
-                  title={ROLE_LABELS[role]}
-                >
-                  {ROLE_LABELS[role]}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
       {dragOver ? (
         <div className="graph-drop-hint" aria-hidden="true">
           Hier ablegen
@@ -581,5 +628,3 @@ export function NetworkGraph({
     </div>
   );
 }
-
-// silence unused helper in tree-shakey builds
