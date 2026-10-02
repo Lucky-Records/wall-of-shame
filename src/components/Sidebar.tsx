@@ -13,6 +13,7 @@ interface SidebarProps {
   canEdit: boolean;
   onAddPerson: (person: Omit<Person, "id">) => void;
   onUpdateCategory: (personId: string, category: Category) => void;
+  onDeletePerson: (personId: string) => void;
   onStartConnect: (personId: string | null) => void;
   onCreateConnection: (sourceId: string, targetId: string) => void;
   statusMessage: string | null;
@@ -41,6 +42,7 @@ export function Sidebar({
   canEdit,
   onAddPerson,
   onUpdateCategory,
+  onDeletePerson,
   onStartConnect,
   onCreateConnection,
   statusMessage,
@@ -313,6 +315,47 @@ export function Sidebar({
         </div>
       </section>
 
+
+      {canEdit && connectFrom ? (
+        <section className="panel panel-danger">
+          <h2>Ausgewählt</h2>
+          <div className="profile-preview">
+            <img
+              src={connectFrom.avatarUrl}
+              alt=""
+              width={48}
+              height={48}
+              className="profile-preview-avatar"
+            />
+            <div className="profile-preview-meta">
+              <strong className="profile-preview-name">{connectFrom.name}</strong>
+              <span className="profile-preview-platform">
+                {CATEGORY_LABELS[connectFrom.category]}
+              </span>
+            </div>
+          </div>
+          <div className="btn-row">
+            <button
+              type="button"
+              className="btn danger"
+              onClick={() => onDeletePerson(connectFrom.id)}
+            >
+              Person entfernen
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => onStartConnect(null)}
+            >
+              Auswahl aufheben
+            </button>
+          </div>
+          <p className="hint">
+            Entfernen löscht auch alle Verbindungen dieser Person.
+          </p>
+        </section>
+      ) : null}
+
       <section className="panel">
         <h2>Personen ({people.length})</h2>
         <ul className="people-list">
@@ -348,23 +391,34 @@ export function Sidebar({
                   </span>
                 </button>
                 {canEdit ? (
-                  <select
-                    className="person-category"
-                    value={p.category}
-                    aria-label={`Kategorie für ${p.name}`}
-                    onChange={(e) =>
-                      onUpdateCategory(p.id, e.target.value as Category)
-                    }
-                    style={{
-                      borderColor: CATEGORY_COLORS[p.category],
-                    }}
-                  >
-                    {ALL_CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {CATEGORY_LABELS[c]}
-                      </option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      className="person-category"
+                      value={p.category}
+                      aria-label={`Kategorie für ${p.name}`}
+                      onChange={(e) =>
+                        onUpdateCategory(p.id, e.target.value as Category)
+                      }
+                      style={{
+                        borderColor: CATEGORY_COLORS[p.category],
+                      }}
+                    >
+                      {ALL_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {CATEGORY_LABELS[c]}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn icon-danger"
+                      aria-label={`${p.name} entfernen`}
+                      title="Person entfernen"
+                      onClick={() => onDeletePerson(p.id)}
+                    >
+                      Löschen
+                    </button>
+                  </>
                 ) : null}
               </div>
             </li>

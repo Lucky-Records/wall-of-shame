@@ -168,6 +168,39 @@ select:focus {
   border-color: #475569;
 }
 
+.btn.danger {
+  background: rgba(251, 113, 133, 0.15);
+  border-color: rgba(251, 113, 133, 0.55);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: rgba(251, 113, 133, 0.28);
+}
+
+.btn.danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.icon-danger {
+  flex-shrink: 0;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.72rem;
+  background: transparent;
+  border-color: rgba(251, 113, 133, 0.4);
+  color: var(--danger);
+}
+
+.btn.icon-danger:hover:not(:disabled) {
+  background: rgba(251, 113, 133, 0.18);
+}
+
+.panel-danger {
+  border-color: rgba(251, 113, 133, 0.35);
+}
+
 .error {
   margin: 0;
   color: var(--danger);

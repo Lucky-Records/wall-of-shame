@@ -78,3 +78,20 @@ export async function apiAddConnection(
   }
   return data.connection;
 }
+
+export async function apiDeletePerson(personId: string): Promise<Person> {
+  const res = await fetch(`/api/graph/people/${encodeURIComponent(personId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  const data = (await res.json()) as {
+    ok?: boolean;
+    person?: Person;
+    error?: string;
+  };
+  if (!res.ok || !data.ok || !data.person) {
+    throw new Error(data.error ?? `Delete person failed (${res.status}).`);
+  }
+  return data.person;
+}
+

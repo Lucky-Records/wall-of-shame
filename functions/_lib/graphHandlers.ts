@@ -207,3 +207,27 @@ export async function handleConnectionsPost(
   await store.set(data);
   return jsonResponse({ ok: true, connection }, { status: 201 });
 }
+
+export async function handlePersonDelete(
+  request: Request,
+  env: DiscordEnv,
+  store: GraphStore,
+  personId: string,
+): Promise<Response> {
+  const auth = await requireEditor(request, env);
+  if (auth instanceof Response) return auth;
+
+  const data = await store.get();
+  const idx = data.people.findIndex((p) => p.id === personId);
+  if (idx === -1) {
+    return jsonResponse({ ok: false, error: "Person not found." }, { status: 404 });
+  }
+
+  const removed = data.people[idx]!;
+  data.people.splice(idx, 1);
+  data.connections = data.connections.filter(
+    (c) => c.source !== personId && c.target !== personId,
+  );
+  await store.set(data);
+  return jsonResponse({ ok: true, person: removed });
+}

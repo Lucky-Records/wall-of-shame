@@ -1,5 +1,8 @@
 import type { DiscordEnv } from "../../../_lib/discord";
-import { handlePersonPatch } from "../../../_lib/graphHandlers";
+import {
+  handlePersonDelete,
+  handlePersonPatch,
+} from "../../../_lib/graphHandlers";
 import { getCloudflareGraphStore } from "../../../_lib/cfStore";
 
 export async function onRequestPatch(context: {
@@ -8,6 +11,19 @@ export async function onRequestPatch(context: {
   params: { id: string };
 }): Promise<Response> {
   return handlePersonPatch(
+    context.request,
+    context.env,
+    getCloudflareGraphStore(),
+    context.params.id,
+  );
+}
+
+export async function onRequestDelete(context: {
+  request: Request;
+  env: DiscordEnv;
+  params: { id: string };
+}): Promise<Response> {
+  return handlePersonDelete(
     context.request,
     context.env,
     getCloudflareGraphStore(),

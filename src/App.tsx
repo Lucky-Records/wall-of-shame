@@ -7,6 +7,7 @@ import { useAuth } from "./hooks/useAuth";
 import {
   apiAddConnection,
   apiAddPerson,
+  apiDeletePerson,
   apiUpdateCategory,
   fetchGraph,
 } from "./hooks/useGraphApi";
@@ -103,6 +104,40 @@ export default function App() {
       }
     },
     [auth.canEdit, flash],
+  );
+
+
+  const handleDeletePerson = useCallback(
+    async (personId: string) => {
+      if (!auth.canEdit) {
+        flash("Mit Discord-Editor-Rolle anmelden, um Personen zu entfernen.");
+        return;
+      }
+      const person = people.find((p) => p.id === personId);
+      if (!person) return;
+      const ok = window.confirm(
+        `„${person.name}“ wirklich entfernen?\nAlle Verbindungen dieser Person werden gelöscht.`,
+      );
+      if (!ok) return;
+      try {
+        const removed = await apiDeletePerson(personId);
+        setPeople((prev) => prev.filter((p) => p.id !== removed.id));
+        setConnections((prev) =>
+          prev.filter(
+            (c) => c.source !== removed.id && c.target !== removed.id,
+          ),
+        );
+        setConnectFromId((cur) => (cur === removed.id ? null : cur));
+        flash(`${removed.name} entfernt.`);
+      } catch (err) {
+        flash(
+          err instanceof Error
+            ? err.message
+            : "Person konnte nicht entfernt werden.",
+        );
+      }
+    },
+    [auth.canEdit, people, flash],
   );
 
   const handleCreateConnection = useCallback(
@@ -203,6 +238,9 @@ export default function App() {
           }}
           onUpdateCategory={(id, category) => {
             void handleUpdateCategory(id, category);
+          }}
+          onDeletePerson={(id) => {
+            void handleDeletePerson(id);
           }}
           onStartConnect={setConnectFromId}
           onCreateConnection={(source, target) => {

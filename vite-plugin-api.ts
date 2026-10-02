@@ -14,6 +14,7 @@ import {
   handleConnectionsPost,
   handleGraphGet,
   handlePeoplePost,
+  handlePersonDelete,
   handlePersonPatch,
 } from "./functions/_lib/graphHandlers.ts";
 import {
@@ -253,15 +254,14 @@ function attachApi(
         response = await handlePeoplePost(request, env, store);
       } else if (pathname === "/api/graph/connections" && method === "POST") {
         response = await handleConnectionsPost(request, env, store);
-      } else if (method === "PATCH") {
+      } else if (method === "PATCH" || method === "DELETE") {
         const match = pathname.match(/^\/api\/graph\/people\/([^/]+)$/);
         if (match) {
-          response = await handlePersonPatch(
-            request,
-            env,
-            store,
-            decodeURIComponent(match[1]!),
-          );
+          const id = decodeURIComponent(match[1]!);
+          response =
+            method === "PATCH"
+              ? await handlePersonPatch(request, env, store, id)
+              : await handlePersonDelete(request, env, store, id);
         }
       }
 
