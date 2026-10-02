@@ -10,7 +10,14 @@ import type {
   Person,
   PersonDraft,
 } from "../types";
-import { CATEGORY_COLORS, PERSON_DRAG_MIME } from "../types";
+import {
+  CATEGORY_COLORS,
+  CONNECTION_KIND_COLORS,
+  CONNECTION_KIND_LABELS,
+  DEFAULT_CONNECTION_KIND,
+  PERSON_DRAG_MIME,
+} from "../types";
+import type { ConnectionKind } from "../types";
 
 interface NetworkGraphProps {
   people: Person[];
@@ -124,13 +131,17 @@ export function NetworkGraph({
     const sigma = new Sigma(graph, containerRef.current, {
       allowInvalidContainer: true,
       renderLabels: true,
+      renderEdgeLabels: true,
       labelColor: { color: "#e2e8f0" },
       labelSize: 12,
       labelWeight: "600",
       labelFont: "Inter, system-ui, sans-serif",
       defaultNodeColor: "#94a3b8",
       defaultEdgeColor: "#475569",
-      edgeLabelSize: 10,
+      edgeLabelSize: 11,
+      edgeLabelWeight: "600",
+      edgeLabelFont: "Inter, system-ui, sans-serif",
+      edgeLabelColor: { color: "#cbd5e1" },
       stagePadding: 40,
       nodeProgramClasses: {
         image: NodeImageProgram,
@@ -214,18 +225,33 @@ export function NetworkGraph({
       }
     }
 
+    function edgeAttrs(conn: Connection) {
+      const kind: ConnectionKind =
+        conn.kind in CONNECTION_KIND_LABELS
+          ? conn.kind
+          : DEFAULT_CONNECTION_KIND;
+      return {
+        size: 2,
+        color: CONNECTION_KIND_COLORS[kind],
+        label: CONNECTION_KIND_LABELS[kind],
+        kind,
+      };
+    }
+
     for (const conn of visibleConnections) {
       if (!graph.hasNode(conn.source) || !graph.hasNode(conn.target)) continue;
-      if (
-        graph.hasEdge(conn.source, conn.target) ||
-        graph.hasEdge(conn.target, conn.source)
-      ) {
+      const attrs = edgeAttrs(conn);
+      if (graph.hasEdge(conn.source, conn.target)) {
+        const edge = graph.edge(conn.source, conn.target);
+        graph.mergeEdgeAttributes(edge, attrs);
         continue;
       }
-      graph.addEdge(conn.source, conn.target, {
-        size: 1.5,
-        color: "#64748b",
-      });
+      if (graph.hasEdge(conn.target, conn.source)) {
+        const edge = graph.edge(conn.target, conn.source);
+        graph.mergeEdgeAttributes(edge, attrs);
+        continue;
+      }
+      graph.addEdge(conn.source, conn.target, attrs);
     }
 
     // Layout only when needed: first populate, or new nodes without drop hints

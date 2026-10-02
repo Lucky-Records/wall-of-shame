@@ -719,3 +719,45 @@ select:disabled {
   background: rgba(139, 92, 246, 0.12);
   border-radius: 12px;
 }
+
+.connections-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.connection-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #121a2e;
+}
+
+.connection-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.connection-names {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+}
+
+.connection-arrow {
+  color: #94a3b8;
+  font-weight: 600;
+}

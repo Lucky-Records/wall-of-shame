@@ -72,47 +72,56 @@ export const GRAPH_SEED: GraphData = {
     {
       "id": "c1",
       "source": "lucky",
-      "target": "pixelpulse"
+      "target": "pixelpulse",
+      "kind": "Mod"
     },
     {
       "id": "c2",
       "source": "lucky",
-      "target": "orbitmod"
+      "target": "orbitmod",
+      "kind": "Mod"
     },
     {
       "id": "c3",
       "source": "lucky",
-      "target": "neonfox"
+      "target": "neonfox",
+      "kind": "Streamerkollege"
     },
     {
       "id": "c4",
       "source": "neonfox",
-      "target": "raidwave"
+      "target": "raidwave",
+      "kind": "Streamerkollege"
     },
     {
       "id": "c5",
       "source": "pixelpulse",
-      "target": "bubbleskip"
+      "target": "bubbleskip",
+      "kind": "Fren"
     },
     {
       "id": "c6",
       "source": "orbitmod",
-      "target": "glownote"
+      "target": "glownote",
+      "kind": "Fren"
     },
     {
       "id": "c7",
       "source": "bubbleskip",
-      "target": "chathaven"
+      "target": "chathaven",
+      "kind": "Fren"
     },
     {
       "id": "c8",
       "source": "raidwave",
-      "target": "chathaven"
+      "target": "chathaven",
+      "kind": "Fren"
     },
     {
       "id": "c9",
       "source": "glownote",
-      "target": "lucky"
+      "target": "lucky",
+      "kind": "Fren"
     }
   ]
 } as GraphData;

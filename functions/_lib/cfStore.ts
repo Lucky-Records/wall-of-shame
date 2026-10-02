@@ -1,8 +1,7 @@
 import {
   cloneGraph,
   createMemoryStore,
-  isConnection,
-  isPerson,
+  normalizeGraph,
   type GraphData,
   type GraphStore,
 } from "./graphStore.ts";
@@ -22,29 +21,36 @@ export type GraphEnv = {
 
 const GRAPH_KEY = "graph";
 
-function isGraphData(value: unknown): value is GraphData {
+function looksLikeGraph(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
   const g = value as Record<string, unknown>;
-  if (!Array.isArray(g.people) || !Array.isArray(g.connections)) return false;
-  return (
-    g.people.every((p) => isPerson(p)) &&
-    g.connections.every((c) => isConnection(c))
-  );
+  return Array.isArray(g.people) && Array.isArray(g.connections);
 }
 
 export function createKvStore(kv: KvLike): GraphStore {
   return {
     async get() {
       const raw = await kv.get(GRAPH_KEY, "json");
-      if (isGraphData(raw)) {
-        return cloneGraph(raw);
+      if (looksLikeGraph(raw)) {
+        const normalized = normalizeGraph(raw);
+        // Persist migration so unlabeled edges get kind once
+        const rawObj = raw as GraphData;
+        const needsWrite =
+          !Array.isArray(rawObj.connections) ||
+          rawObj.connections.some(
+            (c) => !c || typeof c !== "object" || !("kind" in c),
+          );
+        if (needsWrite) {
+          await kv.put(GRAPH_KEY, JSON.stringify(normalized));
+        }
+        return cloneGraph(normalized);
       }
-      const seed = cloneGraph(GRAPH_SEED);
+      const seed = cloneGraph(normalizeGraph(GRAPH_SEED));
       await kv.put(GRAPH_KEY, JSON.stringify(seed));
       return seed;
     },
     async set(data) {
-      await kv.put(GRAPH_KEY, JSON.stringify(cloneGraph(data)));
+      await kv.put(GRAPH_KEY, JSON.stringify(cloneGraph(normalizeGraph(data))));
     },
   };
 }

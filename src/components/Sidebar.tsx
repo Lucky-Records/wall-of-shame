@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
-import type { Category, Person, PersonDraft } from "../types";
+import type {
+  Category,
+  Connection,
+  ConnectionKind,
+  Person,
+  PersonDraft,
+} from "../types";
 import {
   ALL_CATEGORIES,
+  ALL_CONNECTION_KINDS,
   CATEGORY_COLORS,
   CATEGORY_LABELS,
+  CONNECTION_KIND_COLORS,
+  CONNECTION_KIND_LABELS,
   PERSON_DRAG_MIME,
 } from "../types";
 import {
@@ -13,14 +22,22 @@ import {
 
 interface SidebarProps {
   people: Person[];
+  connections: Connection[];
   connectFromId: string | null;
+  connectKind: ConnectionKind;
   canEdit: boolean;
   previewClearToken?: number;
   onAddPerson: (person: PersonDraft) => void;
   onUpdateCategory: (personId: string, category: Category) => void;
   onDeletePerson: (personId: string) => void;
+  onDeleteConnection: (connectionId: string) => void;
   onStartConnect: (personId: string | null) => void;
-  onCreateConnection: (sourceId: string, targetId: string) => void;
+  onConnectKindChange: (kind: ConnectionKind) => void;
+  onCreateConnection: (
+    sourceId: string,
+    targetId: string,
+    kind: ConnectionKind,
+  ) => void;
   statusMessage: string | null;
 }
 
@@ -37,13 +54,17 @@ function platformLabel(platform: Person["platform"]): string {
 
 export function Sidebar({
   people,
+  connections,
   connectFromId,
+  connectKind,
   canEdit,
   previewClearToken = 0,
   onAddPerson,
   onUpdateCategory,
   onDeletePerson,
+  onDeleteConnection,
   onStartConnect,
+  onConnectKindChange,
   onCreateConnection,
   statusMessage,
 }: SidebarProps) {
@@ -70,6 +91,24 @@ export function Sidebar({
     () => [...people].sort((a, b) => a.name.localeCompare(b.name)),
     [people],
   );
+
+  const peopleById = useMemo(() => {
+    const map = new Map<string, Person>();
+    for (const p of people) map.set(p.id, p);
+    return map;
+  }, [people]);
+
+  const connectionsSorted = useMemo(() => {
+    return [...connections].sort((a, b) => {
+      const an = peopleById.get(a.source)?.name ?? a.source;
+      const bn = peopleById.get(b.source)?.name ?? b.source;
+      const cmp = an.localeCompare(bn);
+      if (cmp !== 0) return cmp;
+      const at = peopleById.get(a.target)?.name ?? a.target;
+      const bt = peopleById.get(b.target)?.name ?? b.target;
+      return at.localeCompare(bt);
+    });
+  }, [connections, peopleById]);
 
   const connectFrom = people.find((p) => p.id === connectFromId) ?? null;
   const fieldsDisabled = !canEdit || resolving;
@@ -140,7 +179,10 @@ export function Sidebar({
       return;
     }
     e.dataTransfer.setData(PERSON_DRAG_MIME, JSON.stringify(draft));
-    e.dataTransfer.setData("text/plain", `${draft.name} (${CATEGORY_LABELS[draft.category]})`);
+    e.dataTransfer.setData(
+      "text/plain",
+      `${draft.name} (${CATEGORY_LABELS[draft.category]})`,
+    );
     e.dataTransfer.effectAllowed = "copy";
     if (previewCardRef.current) {
       e.dataTransfer.setDragImage(previewCardRef.current, 40, 40);
@@ -155,7 +197,7 @@ export function Sidebar({
   function handleConnect(e: FormEvent) {
     e.preventDefault();
     if (!canEdit || !connectFromId || !connectTarget) return;
-    onCreateConnection(connectFromId, connectTarget);
+    onCreateConnection(connectFromId, connectTarget, connectKind);
     setConnectTarget("");
   }
 
@@ -313,11 +355,49 @@ export function Sidebar({
           </p>
         ) : (
           <p className="hint">
-            Klicke einen Knoten im Graphen oder wähle unten „Von“, dann „Nach“ —
-            oder klicke nacheinander zwei Knoten.
+            Zuerst den Verbindungstyp wählen (Mod / Fren / Streamerkollege),
+            dann Von/Nach oder zwei Knoten im Graph.
           </p>
         )}
         <div className="stack">
+          <fieldset className="role-fieldset">
+            <legend>Verbindungstyp</legend>
+            <div
+              className="role-chips"
+              role="radiogroup"
+              aria-label="Verbindungstyp"
+            >
+              {ALL_CONNECTION_KINDS.map((k) => {
+                const selected = connectKind === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className={`role-chip${selected ? " on" : ""}`}
+                    style={
+                      selected
+                        ? {
+                            borderColor: CONNECTION_KIND_COLORS[k],
+                            boxShadow: `0 0 0 2px ${CONNECTION_KIND_COLORS[k]}33`,
+                          }
+                        : undefined
+                    }
+                    onClick={() => onConnectKindChange(k)}
+                    disabled={!canEdit}
+                  >
+                    <span
+                      className="swatch"
+                      style={{ background: CONNECTION_KIND_COLORS[k] }}
+                    />
+                    {CONNECTION_KIND_LABELS[k]}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
           <label>
             Von
             <select
@@ -359,7 +439,7 @@ export function Sidebar({
                   className="btn primary"
                   disabled={!canEdit || !connectTarget}
                 >
-                  Verbinden
+                  Als {CONNECTION_KIND_LABELS[connectKind]} verbinden
                 </button>
                 {canEdit && connectFrom ? (
                   <button
@@ -418,6 +498,51 @@ export function Sidebar({
           </p>
         </section>
       ) : null}
+
+      <section className="panel">
+        <h2>Verbindungen ({connections.length})</h2>
+        {connectionsSorted.length === 0 ? (
+          <p className="hint">Noch keine Verbindungen.</p>
+        ) : (
+          <ul className="connections-list">
+            {connectionsSorted.map((c) => {
+              const a = peopleById.get(c.source);
+              const b = peopleById.get(c.target);
+              const kind = c.kind;
+              return (
+                <li key={c.id} className="connection-row">
+                  <div className="connection-meta">
+                    <span className="connection-names">
+                      <strong>{a?.name ?? c.source}</strong>
+                      <span className="connection-arrow" aria-hidden="true">
+                        ↔
+                      </span>
+                      <strong>{b?.name ?? c.target}</strong>
+                    </span>
+                    <span
+                      className="cat-pill"
+                      style={{ background: CONNECTION_KIND_COLORS[kind] }}
+                    >
+                      {CONNECTION_KIND_LABELS[kind]}
+                    </span>
+                  </div>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className="btn icon-danger"
+                      aria-label={`Verbindung ${CONNECTION_KIND_LABELS[kind]} löschen`}
+                      title="Verbindung löschen"
+                      onClick={() => onDeleteConnection(c.id)}
+                    >
+                      Löschen
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       <section className="panel">
         <h2>Personen ({people.length})</h2>
@@ -493,4 +618,3 @@ export function Sidebar({
     </>
   );
 }
-

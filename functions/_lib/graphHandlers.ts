@@ -1,10 +1,13 @@
 import { jsonResponse, readJsonBody } from "./http.ts";
 import {
   allocatePersonId,
+  DEFAULT_CONNECTION_KIND,
   isCategory,
   isConnection,
+  isConnectionKind,
   isPerson,
   type Connection,
+  type ConnectionKind,
   type GraphStore,
   type Person,
 } from "./graphStore.ts";
@@ -111,11 +114,16 @@ export async function handleConnectionsPost(
   request: Request,
   store: GraphStore,
 ): Promise<Response> {
-  const body = await readJsonBody<{ source?: unknown; target?: unknown }>(
-    request,
-  );
+  const body = await readJsonBody<{
+    source?: unknown;
+    target?: unknown;
+    kind?: unknown;
+  }>(request);
   const source = typeof body?.source === "string" ? body.source : "";
   const target = typeof body?.target === "string" ? body.target : "";
+  const kind: ConnectionKind = isConnectionKind(body?.kind)
+    ? body.kind
+    : DEFAULT_CONNECTION_KIND;
 
   if (!source || !target) {
     return jsonResponse(
@@ -157,6 +165,7 @@ export async function handleConnectionsPost(
     id: `c-${source}-${target}-${Date.now()}`,
     source,
     target,
+    kind,
   };
   if (!isConnection(connection)) {
     return jsonResponse(
@@ -168,6 +177,27 @@ export async function handleConnectionsPost(
   data.connections.push(connection);
   await store.set(data);
   return jsonResponse({ ok: true, connection }, { status: 201 });
+}
+
+export async function handleConnectionDelete(
+  request: Request,
+  store: GraphStore,
+  connectionId: string,
+): Promise<Response> {
+  void request;
+  const data = await store.get();
+  const idx = data.connections.findIndex((c) => c.id === connectionId);
+  if (idx === -1) {
+    return jsonResponse(
+      { ok: false, error: "Connection not found." },
+      { status: 404 },
+    );
+  }
+
+  const removed = data.connections[idx]!;
+  data.connections.splice(idx, 1);
+  await store.set(data);
+  return jsonResponse({ ok: true, connection: removed });
 }
 
 export async function handlePersonDelete(

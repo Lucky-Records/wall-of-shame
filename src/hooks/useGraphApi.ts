@@ -1,4 +1,4 @@
-import type { Category, Connection, Person } from "../types";
+import type { Category, Connection, ConnectionKind, Person } from "../types";
 
 export async function fetchGraph(): Promise<{
   people: Person[];
@@ -61,12 +61,13 @@ export async function apiUpdateCategory(
 export async function apiAddConnection(
   source: string,
   target: string,
+  kind: ConnectionKind,
 ): Promise<Connection> {
   const res = await fetch("/api/graph/connections", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source, target }),
+    body: JSON.stringify({ source, target, kind }),
   });
   const data = (await res.json()) as {
     ok?: boolean;
@@ -75,6 +76,27 @@ export async function apiAddConnection(
   };
   if (!res.ok || !data.ok || !data.connection) {
     throw new Error(data.error ?? `Add connection failed (${res.status}).`);
+  }
+  return data.connection;
+}
+
+export async function apiDeleteConnection(
+  connectionId: string,
+): Promise<Connection> {
+  const res = await fetch(
+    `/api/graph/connections/${encodeURIComponent(connectionId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  const data = (await res.json()) as {
+    ok?: boolean;
+    connection?: Connection;
+    error?: string;
+  };
+  if (!res.ok || !data.ok || !data.connection) {
+    throw new Error(data.error ?? `Delete connection failed (${res.status}).`);
   }
   return data.connection;
 }
@@ -94,4 +116,3 @@ export async function apiDeletePerson(personId: string): Promise<Person> {
   }
   return data.person;
 }
-

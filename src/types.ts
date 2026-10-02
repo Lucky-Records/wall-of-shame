@@ -1,5 +1,8 @@
 export type Category = "Streamer" | "Mod" | "Bubble";
 
+/** Relationship between two people (edge label). */
+export type ConnectionKind = "Mod" | "Fren" | "Streamerkollege";
+
 export interface Person {
   id: string;
   name: string;
@@ -13,6 +16,7 @@ export interface Connection {
   id: string;
   source: string;
   target: string;
+  kind: ConnectionKind;
 }
 
 export interface GraphPosition {
@@ -42,6 +46,26 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   Streamer: "Streamer",
   Mod: "Mod",
   Bubble: "User",
+};
+
+export const ALL_CONNECTION_KINDS: ConnectionKind[] = [
+  "Mod",
+  "Fren",
+  "Streamerkollege",
+];
+
+export const DEFAULT_CONNECTION_KIND: ConnectionKind = "Fren";
+
+export const CONNECTION_KIND_LABELS: Record<ConnectionKind, string> = {
+  Mod: "Mod",
+  Fren: "Fren",
+  Streamerkollege: "Streamerkollege",
+};
+
+export const CONNECTION_KIND_COLORS: Record<ConnectionKind, string> = {
+  Mod: "#34d399",
+  Fren: "#fbbf24",
+  Streamerkollege: "#a78bfa",
 };
 
 export const PERSON_DRAG_MIME = "application/x-wos-person";

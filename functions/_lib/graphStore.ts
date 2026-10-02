@@ -1,5 +1,7 @@
 export type Category = "Streamer" | "Mod" | "Bubble";
 
+export type ConnectionKind = "Mod" | "Fren" | "Streamerkollege";
+
 export type Person = {
   id: string;
   name: string;
@@ -13,6 +15,7 @@ export type Connection = {
   id: string;
   source: string;
   target: string;
+  kind: ConnectionKind;
 };
 
 export type GraphData = {
@@ -27,6 +30,13 @@ export interface GraphStore {
 
 const CATEGORIES = new Set<Category>(["Streamer", "Mod", "Bubble"]);
 const PLATFORMS = new Set(["twitch", "twitter", "x", "unknown"]);
+const CONNECTION_KINDS = new Set<ConnectionKind>([
+  "Mod",
+  "Fren",
+  "Streamerkollege",
+]);
+
+export const DEFAULT_CONNECTION_KIND: ConnectionKind = "Fren";
 
 export function cloneGraph(data: GraphData): GraphData {
   return {
@@ -36,19 +46,25 @@ export function cloneGraph(data: GraphData): GraphData {
 }
 
 export function createMemoryStore(seed: GraphData): GraphStore {
-  let current = cloneGraph(seed);
+  let current = cloneGraph(normalizeGraph(seed));
   return {
     async get() {
       return cloneGraph(current);
     },
     async set(data) {
-      current = cloneGraph(data);
+      current = cloneGraph(normalizeGraph(data));
     },
   };
 }
 
 export function isCategory(value: unknown): value is Category {
   return typeof value === "string" && CATEGORIES.has(value as Category);
+}
+
+export function isConnectionKind(value: unknown): value is ConnectionKind {
+  return (
+    typeof value === "string" && CONNECTION_KINDS.has(value as ConnectionKind)
+  );
 }
 
 export function isPerson(value: unknown): value is Person {
@@ -65,14 +81,53 @@ export function isPerson(value: unknown): value is Person {
   );
 }
 
+/** Strict check after migration (kind required). */
 export function isConnection(value: unknown): value is Connection {
   if (!value || typeof value !== "object") return false;
   const c = value as Record<string, unknown>;
   return (
     typeof c.id === "string" &&
     typeof c.source === "string" &&
-    typeof c.target === "string"
+    typeof c.target === "string" &&
+    isConnectionKind(c.kind)
   );
+}
+
+/** Accept legacy edges without kind; fill default Fren. */
+export function normalizeConnection(value: unknown): Connection | null {
+  if (!value || typeof value !== "object") return null;
+  const c = value as Record<string, unknown>;
+  if (
+    typeof c.id !== "string" ||
+    typeof c.source !== "string" ||
+    typeof c.target !== "string"
+  ) {
+    return null;
+  }
+  return {
+    id: c.id,
+    source: c.source,
+    target: c.target,
+    kind: isConnectionKind(c.kind) ? c.kind : DEFAULT_CONNECTION_KIND,
+  };
+}
+
+export function normalizeGraph(raw: unknown): GraphData {
+  if (!raw || typeof raw !== "object") {
+    return { people: [], connections: [] };
+  }
+  const g = raw as Record<string, unknown>;
+  const people = Array.isArray(g.people)
+    ? g.people.filter(isPerson).map((p) => ({ ...p }))
+    : [];
+  const connections: Connection[] = [];
+  if (Array.isArray(g.connections)) {
+    for (const item of g.connections) {
+      const conn = normalizeConnection(item);
+      if (conn) connections.push(conn);
+    }
+  }
+  return { people, connections };
 }
 
 export function slugify(name: string): string {

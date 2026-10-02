@@ -11,6 +11,7 @@ import {
 } from "./functions/_lib/authHandlers.ts";
 import type { DiscordEnv } from "./functions/_lib/discord.ts";
 import {
+  handleConnectionDelete,
   handleConnectionsPost,
   handleGraphGet,
   handlePeoplePost,
@@ -20,6 +21,7 @@ import {
 import {
   cloneGraph,
   createMemoryStore,
+  normalizeGraph,
   type GraphData,
   type GraphStore,
 } from "./functions/_lib/graphStore.ts";
@@ -49,7 +51,7 @@ function createFileBackedStore(): GraphStore {
   }
 
   const memory = createMemoryStore(
-    JSON.parse(readFileSync(localGraphPath, "utf8")) as GraphData,
+    normalizeGraph(JSON.parse(readFileSync(localGraphPath, "utf8"))),
   );
 
   return {
@@ -245,14 +247,23 @@ function attachApi(
         response = await handlePeoplePost(request, store);
       } else if (pathname === "/api/graph/connections" && method === "POST") {
         response = await handleConnectionsPost(request, store);
-      } else if (method === "PATCH" || method === "DELETE") {
+      } else if (method === "DELETE") {
+        const connMatch = pathname.match(/^\/api\/graph\/connections\/([^/]+)$/);
+        if (connMatch) {
+          const id = decodeURIComponent(connMatch[1]!);
+          response = await handleConnectionDelete(request, store, id);
+        } else {
+          const match = pathname.match(/^\/api\/graph\/people\/([^/]+)$/);
+          if (match) {
+            const id = decodeURIComponent(match[1]!);
+            response = await handlePersonDelete(request, store, id);
+          }
+        }
+      } else if (method === "PATCH") {
         const match = pathname.match(/^\/api\/graph\/people\/([^/]+)$/);
         if (match) {
           const id = decodeURIComponent(match[1]!);
-          response =
-            method === "PATCH"
-              ? await handlePersonPatch(request, store, id)
-              : await handlePersonDelete(request, store, id);
+          response = await handlePersonPatch(request, store, id);
         }
       }
 

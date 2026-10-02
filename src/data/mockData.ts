@@ -68,13 +68,13 @@ export const MOCK_PEOPLE: Person[] = [
 ];
 
 export const MOCK_CONNECTIONS: Connection[] = [
-  { id: "c1", source: "lucky", target: "pixelpulse" },
-  { id: "c2", source: "lucky", target: "orbitmod" },
-  { id: "c3", source: "lucky", target: "neonfox" },
-  { id: "c4", source: "neonfox", target: "raidwave" },
-  { id: "c5", source: "pixelpulse", target: "bubbleskip" },
-  { id: "c6", source: "orbitmod", target: "glownote" },
-  { id: "c7", source: "bubbleskip", target: "chathaven" },
-  { id: "c8", source: "raidwave", target: "chathaven" },
-  { id: "c9", source: "glownote", target: "lucky" },
+  { id: "c1", source: "lucky", target: "pixelpulse", kind: "Mod" },
+  { id: "c2", source: "lucky", target: "orbitmod", kind: "Mod" },
+  { id: "c3", source: "lucky", target: "neonfox", kind: "Streamerkollege" },
+  { id: "c4", source: "neonfox", target: "raidwave", kind: "Streamerkollege" },
+  { id: "c5", source: "pixelpulse", target: "bubbleskip", kind: "Fren" },
+  { id: "c6", source: "orbitmod", target: "glownote", kind: "Fren" },
+  { id: "c7", source: "bubbleskip", target: "chathaven", kind: "Fren" },
+  { id: "c8", source: "raidwave", target: "chathaven", kind: "Fren" },
+  { id: "c9", source: "glownote", target: "lucky", kind: "Fren" },
 ];

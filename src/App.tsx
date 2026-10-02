@@ -5,6 +5,7 @@ import { Sidebar } from "./components/Sidebar";
 import {
   apiAddConnection,
   apiAddPerson,
+  apiDeleteConnection,
   apiDeletePerson,
   apiUpdateCategory,
   fetchGraph,
@@ -12,11 +13,17 @@ import {
 import type {
   Category,
   Connection,
+  ConnectionKind,
   GraphPosition,
   Person,
   PersonDraft,
 } from "./types";
-import { ALL_CATEGORIES, CATEGORY_LABELS } from "./types";
+import {
+  ALL_CATEGORIES,
+  CATEGORY_LABELS,
+  CONNECTION_KIND_LABELS,
+  DEFAULT_CONNECTION_KIND,
+} from "./types";
 
 export default function App() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -27,6 +34,9 @@ export default function App() {
     () => new Set(ALL_CATEGORIES),
   );
   const [connectFromId, setConnectFromId] = useState<string | null>(null);
+  const [connectKind, setConnectKind] = useState<ConnectionKind>(
+    DEFAULT_CONNECTION_KIND,
+  );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [positionHints, setPositionHints] = useState<
     Record<string, GraphPosition>
@@ -139,7 +149,7 @@ export default function App() {
   );
 
   const handleCreateConnection = useCallback(
-    async (sourceId: string, targetId: string) => {
+    async (sourceId: string, targetId: string, kind: ConnectionKind) => {
       if (sourceId === targetId) {
         flash("Eine Person kann nicht mit sich selbst verbunden werden.");
         return;
@@ -154,17 +164,46 @@ export default function App() {
         return;
       }
       try {
-        const connection = await apiAddConnection(sourceId, targetId);
+        const connection = await apiAddConnection(sourceId, targetId, kind);
         setConnections((prev) => [...prev, connection]);
         setConnectFromId(null);
         const a = people.find((p) => p.id === sourceId)?.name ?? sourceId;
         const b = people.find((p) => p.id === targetId)?.name ?? targetId;
-        flash(`${a} ↔ ${b} verbunden.`);
+        flash(
+          `${a} ↔ ${b} · ${CONNECTION_KIND_LABELS[connection.kind]}`,
+        );
       } catch (err) {
         flash(
           err instanceof Error
             ? err.message
             : "Verbindung konnte nicht erstellt werden.",
+        );
+      }
+    },
+    [connections, people, flash],
+  );
+
+  const handleDeleteConnection = useCallback(
+    async (connectionId: string) => {
+      const conn = connections.find((c) => c.id === connectionId);
+      if (!conn) return;
+      const a = people.find((p) => p.id === conn.source)?.name ?? conn.source;
+      const b = people.find((p) => p.id === conn.target)?.name ?? conn.target;
+      const ok = window.confirm(
+        `Verbindung „${CONNECTION_KIND_LABELS[conn.kind]}“ zwischen ${a} und ${b} löschen?`,
+      );
+      if (!ok) return;
+      try {
+        const removed = await apiDeleteConnection(connectionId);
+        setConnections((prev) => prev.filter((c) => c.id !== removed.id));
+        flash(
+          `${a} ↔ ${b} · ${CONNECTION_KIND_LABELS[removed.kind]} entfernt.`,
+        );
+      } catch (err) {
+        flash(
+          err instanceof Error
+            ? err.message
+            : "Verbindung konnte nicht gelöscht werden.",
         );
       }
     },
@@ -181,9 +220,9 @@ export default function App() {
         setConnectFromId(null);
         return;
       }
-      void handleCreateConnection(connectFromId, personId);
+      void handleCreateConnection(connectFromId, personId, connectKind);
     },
-    [connectFromId, handleCreateConnection],
+    [connectFromId, connectKind, handleCreateConnection],
   );
 
   const handlePersonDrop = useCallback(
@@ -220,7 +259,9 @@ export default function App() {
 
         <Sidebar
           people={people}
+          connections={connections}
           connectFromId={connectFromId}
+          connectKind={connectKind}
           canEdit={true}
           previewClearToken={previewClearToken}
           onAddPerson={(draft) => {
@@ -232,9 +273,13 @@ export default function App() {
           onDeletePerson={(id) => {
             void handleDeletePerson(id);
           }}
+          onDeleteConnection={(id) => {
+            void handleDeleteConnection(id);
+          }}
           onStartConnect={setConnectFromId}
-          onCreateConnection={(source, target) => {
-            void handleCreateConnection(source, target);
+          onConnectKindChange={setConnectKind}
+          onCreateConnection={(source, target, kind) => {
+            void handleCreateConnection(source, target, kind);
           }}
           statusMessage={statusMessage}
         />
@@ -260,8 +305,8 @@ export default function App() {
           />
         )}
         <p className="stage-hint">
-          Profilkarte auf Graph ziehen · Scrollen zum Zoomen · Knoten klicken für
-          Verbindung
+          Profilkarte auf Graph ziehen · Scrollen zum Zoomen · Verbindungstyp
+          wählen, dann Knoten klicken
         </p>
       </main>
     </div>
