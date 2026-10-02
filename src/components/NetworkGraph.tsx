@@ -5,12 +5,22 @@ import Sigma from "sigma";
 import { NodeImageProgram } from "@sigma/node-image";
 import {
   createDrawCurvedEdgeLabel,
+  createEdgeCurveProgram,
   DEFAULT_EDGE_CURVATURE,
   DEFAULT_EDGE_CURVE_PROGRAM_OPTIONS,
-  EdgeCurvedArrowProgram,
   indexParallelEdgesIndex,
 } from "@sigma/edge-curve";
-import { EdgeArrowProgram } from "sigma/rendering";
+import { createEdgeArrowProgram } from "sigma/rendering";
+
+/** ~25% larger arrow heads than sigma defaults (2.5 / 2). */
+const ARROW_HEAD = {
+  lengthToThicknessRatio: 3.125,
+  widenessToThicknessRatio: 2.5,
+} as const;
+const StraightArrowProgram = createEdgeArrowProgram(ARROW_HEAD);
+const CurvedArrowProgram = createEdgeCurveProgram({
+  arrowHead: { extremity: "target", ...ARROW_HEAD },
+});
 import type { Settings } from "sigma/settings";
 import type {
   Connection,
@@ -310,8 +320,8 @@ export function NetworkGraph({
         image: NodeImageProgram,
       },
       edgeProgramClasses: {
-        straight: EdgeArrowProgram,
-        curved: EdgeCurvedArrowProgram,
+        straight: StraightArrowProgram,
+        curved: CurvedArrowProgram,
       },
       defaultDrawNodeLabel: drawAttachedNodeLabel,
       defaultDrawEdgeLabel: createDrawCurvedEdgeLabel(
