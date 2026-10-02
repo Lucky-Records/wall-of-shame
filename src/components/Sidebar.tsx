@@ -142,8 +142,7 @@ export function Sidebar({
         <h2>Person hinzufügen</h2>
         {!canEdit ? (
           <p className="lock-hint" role="note">
-            <strong>Gesperrt · Locked.</strong> Discord-Login mit Editor-Rolle
-            freischalten / Sign in with Discord editor role to unlock.
+            <strong>Gesperrt.</strong> Bearbeiten ist gerade nicht möglich.
           </p>
         ) : null}
 
@@ -244,8 +243,7 @@ export function Sidebar({
         <h2>Verbindung ziehen</h2>
         {!canEdit ? (
           <p className="lock-hint" role="note">
-            <strong>Gesperrt · Locked.</strong> Nach dem Hinzufügen zwei Personen
-            wählen (Graph oder Liste). / Pick two people after they exist.
+            <strong>Gesperrt.</strong> Nach dem Hinzufügen zwei Personen wählen.
           </p>
         ) : (
           <p className="hint">

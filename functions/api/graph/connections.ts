@@ -1,14 +1,15 @@
-import type { DiscordEnv } from "../../_lib/discord";
 import { handleConnectionsPost } from "../../_lib/graphHandlers";
-import { getCloudflareGraphStore } from "../../_lib/cfStore";
+import {
+  getCloudflareGraphStore,
+  type GraphEnv,
+} from "../../_lib/cfStore";
 
 export async function onRequestPost(context: {
   request: Request;
-  env: DiscordEnv;
+  env: GraphEnv;
 }): Promise<Response> {
   return handleConnectionsPost(
     context.request,
-    context.env,
-    getCloudflareGraphStore(),
+    getCloudflareGraphStore(context.env),
   );
 }

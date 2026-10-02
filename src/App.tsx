@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { AuthPanel } from "./components/AuthPanel";
 import { CategoryFilters } from "./components/CategoryFilters";
 import { NetworkGraph } from "./components/NetworkGraph";
 import { Sidebar } from "./components/Sidebar";
-import { useAuth } from "./hooks/useAuth";
 import {
   apiAddConnection,
   apiAddPerson,
@@ -15,7 +13,6 @@ import type { Category, Connection, Person } from "./types";
 import { ALL_CATEGORIES } from "./types";
 
 export default function App() {
-  const auth = useAuth();
   const [people, setPeople] = useState<Person[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [graphLoading, setGraphLoading] = useState(true);
@@ -40,7 +37,9 @@ export default function App() {
       setConnections(data.connections);
     } catch (err) {
       setGraphError(
-        err instanceof Error ? err.message : "Netzwerkdaten konnten nicht geladen werden.",
+        err instanceof Error
+          ? err.message
+          : "Netzwerkdaten konnten nicht geladen werden.",
       );
     } finally {
       setGraphLoading(false);
@@ -51,46 +50,25 @@ export default function App() {
     void reloadGraph();
   }, [reloadGraph]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const authStatus = params.get("auth");
-    if (!authStatus) return;
-    if (authStatus === "ok") {
-      flash(
-        params.get("edit") === "0"
-          ? "Angemeldet — nur Ansicht (keine Editor-Rolle)."
-          : "Mit Discord angemeldet.",
-      );
-      void auth.refresh();
-    } else if (authStatus === "error") {
-      flash(`Discord-Anmeldung fehlgeschlagen (${params.get("reason") ?? "unbekannt"}).`);
-    }
-    window.history.replaceState({}, "", window.location.pathname);
-  }, [auth, flash]);
-
   const handleAddPerson = useCallback(
     async (draft: Omit<Person, "id">) => {
-      if (!auth.canEdit) {
-        flash("Mit Discord-Editor-Rolle anmelden, um Personen hinzuzufügen.");
-        return;
-      }
       try {
         const person = await apiAddPerson(draft);
         setPeople((prev) => [...prev, person]);
         flash(`${person.name} hinzugefügt.`);
       } catch (err) {
-        flash(err instanceof Error ? err.message : "Person konnte nicht hinzugefügt werden.");
+        flash(
+          err instanceof Error
+            ? err.message
+            : "Person konnte nicht hinzugefügt werden.",
+        );
       }
     },
-    [auth.canEdit, flash],
+    [flash],
   );
 
   const handleUpdateCategory = useCallback(
     async (personId: string, category: Category) => {
-      if (!auth.canEdit) {
-        flash("Mit Discord-Editor-Rolle anmelden, um Kategorien zu ändern.");
-        return;
-      }
       try {
         const person = await apiUpdateCategory(personId, category);
         setPeople((prev) =>
@@ -99,20 +77,17 @@ export default function App() {
         flash(`${person.name} → ${category} aktualisiert.`);
       } catch (err) {
         flash(
-          err instanceof Error ? err.message : "Kategorie konnte nicht aktualisiert werden.",
+          err instanceof Error
+            ? err.message
+            : "Kategorie konnte nicht aktualisiert werden.",
         );
       }
     },
-    [auth.canEdit, flash],
+    [flash],
   );
-
 
   const handleDeletePerson = useCallback(
     async (personId: string) => {
-      if (!auth.canEdit) {
-        flash("Mit Discord-Editor-Rolle anmelden, um Personen zu entfernen.");
-        return;
-      }
       const person = people.find((p) => p.id === personId);
       if (!person) return;
       const ok = window.confirm(
@@ -137,15 +112,11 @@ export default function App() {
         );
       }
     },
-    [auth.canEdit, people, flash],
+    [people, flash],
   );
 
   const handleCreateConnection = useCallback(
     async (sourceId: string, targetId: string) => {
-      if (!auth.canEdit) {
-        flash("Mit Discord-Editor-Rolle anmelden, um Verbindungen zu ziehen.");
-        return;
-      }
       if (sourceId === targetId) {
         flash("Eine Person kann nicht mit sich selbst verbunden werden.");
         return;
@@ -168,16 +139,17 @@ export default function App() {
         flash(`${a} ↔ ${b} verbunden.`);
       } catch (err) {
         flash(
-          err instanceof Error ? err.message : "Verbindung konnte nicht erstellt werden.",
+          err instanceof Error
+            ? err.message
+            : "Verbindung konnte nicht erstellt werden.",
         );
       }
     },
-    [auth.canEdit, connections, people, flash],
+    [connections, people, flash],
   );
 
   const handleNodeClick = useCallback(
     (personId: string) => {
-      if (!auth.canEdit) return;
       if (!connectFromId) {
         setConnectFromId(personId);
         return;
@@ -188,7 +160,7 @@ export default function App() {
       }
       void handleCreateConnection(connectFromId, personId);
     },
-    [auth.canEdit, connectFromId, handleCreateConnection],
+    [connectFromId, handleCreateConnection],
   );
 
   const toggleCategory = useCallback((category: Category) => {
@@ -208,31 +180,18 @@ export default function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <header className="sidebar-header">
-          <p className="eyebrow">Lucky · Discord</p>
+          <p className="eyebrow">Lucky · öffentlich</p>
           <h1>The Wall of Shame</h1>
           <p className="tagline">
-            Interaktive Community-Netzwerk-Karte. Knoten = Personen, Kanten =
-            Verbindungen.
+            Interaktive Community-Netzwerk-Karte. Jeder kann Personen
+            hinzufügen, Kategorien ändern und Verbindungen ziehen.
           </p>
         </header>
-
-        <AuthPanel
-          loading={auth.loading}
-          authenticated={auth.authenticated}
-          canEdit={auth.canEdit}
-          discordConfigured={auth.discordConfigured}
-          roleGateConfigured={auth.roleGateConfigured}
-          user={auth.user}
-          error={auth.error}
-          onLogout={() => {
-            void auth.logout();
-          }}
-        />
 
         <Sidebar
           people={people}
           connectFromId={connectFromId}
-          canEdit={auth.canEdit}
+          canEdit={true}
           onAddPerson={(draft) => {
             void handleAddPerson(draft);
           }}
@@ -263,14 +222,13 @@ export default function App() {
             people={people}
             connections={connections}
             visibleCategories={visibleCategories}
-            connectFromId={auth.canEdit ? connectFromId : null}
+            connectFromId={connectFromId}
             onNodeClick={handleNodeClick}
           />
         )}
         <p className="stage-hint">
-          {auth.canEdit
-            ? "Ziehen · Scrollen zum Zoomen · Knoten klicken für Verbindung, zweiten Knoten zum Fertigstellen"
-            : "Ziehen · Scrollen zum Zoomen · Discord (Editor-Rolle) zum Bearbeiten"}
+          Ziehen · Scrollen zum Zoomen · Knoten klicken für Verbindung, zweiten
+          Knoten zum Fertigstellen
         </p>
       </main>
     </div>

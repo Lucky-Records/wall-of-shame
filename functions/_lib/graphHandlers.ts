@@ -8,32 +8,6 @@ import {
   type GraphStore,
   type Person,
 } from "./graphStore.ts";
-import { getSessionFromRequest, type SessionPayload } from "./session.ts";
-import type { DiscordEnv } from "./discord.ts";
-
-async function requireEditor(
-  request: Request,
-  env: DiscordEnv,
-): Promise<SessionPayload | Response> {
-  const session = await getSessionFromRequest(request, env.SESSION_SECRET);
-  if (!session) {
-    return jsonResponse(
-      { ok: false, error: "Sign in with Discord to edit the board." },
-      { status: 401 },
-    );
-  }
-  if (!session.canEdit) {
-    return jsonResponse(
-      {
-        ok: false,
-        error:
-          "Your Discord account is signed in but does not have the editor role.",
-      },
-      { status: 403 },
-    );
-  }
-  return session;
-}
 
 export async function handleGraphGet(store: GraphStore): Promise<Response> {
   const data = await store.get();
@@ -42,12 +16,8 @@ export async function handleGraphGet(store: GraphStore): Promise<Response> {
 
 export async function handlePeoplePost(
   request: Request,
-  env: DiscordEnv,
   store: GraphStore,
 ): Promise<Response> {
-  const auth = await requireEditor(request, env);
-  if (auth instanceof Response) return auth;
-
   const body = await readJsonBody<Partial<Person>>(request);
   if (!body) {
     return jsonResponse({ ok: false, error: "Invalid JSON body." }, { status: 400 });
@@ -114,13 +84,9 @@ export async function handlePeoplePost(
 
 export async function handlePersonPatch(
   request: Request,
-  env: DiscordEnv,
   store: GraphStore,
   personId: string,
 ): Promise<Response> {
-  const auth = await requireEditor(request, env);
-  if (auth instanceof Response) return auth;
-
   const body = await readJsonBody<{ category?: unknown }>(request);
   if (!body || !isCategory(body.category)) {
     return jsonResponse(
@@ -143,12 +109,8 @@ export async function handlePersonPatch(
 
 export async function handleConnectionsPost(
   request: Request,
-  env: DiscordEnv,
   store: GraphStore,
 ): Promise<Response> {
-  const auth = await requireEditor(request, env);
-  if (auth instanceof Response) return auth;
-
   const body = await readJsonBody<{ source?: unknown; target?: unknown }>(
     request,
   );
@@ -210,13 +172,10 @@ export async function handleConnectionsPost(
 
 export async function handlePersonDelete(
   request: Request,
-  env: DiscordEnv,
   store: GraphStore,
   personId: string,
 ): Promise<Response> {
-  const auth = await requireEditor(request, env);
-  if (auth instanceof Response) return auth;
-
+  void request;
   const data = await store.get();
   const idx = data.people.findIndex((p) => p.id === personId);
   if (idx === -1) {

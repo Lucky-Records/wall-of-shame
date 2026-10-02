@@ -251,17 +251,17 @@ function attachApi(
       ) {
         response = await handleGraphGet(store);
       } else if (pathname === "/api/graph/people" && method === "POST") {
-        response = await handlePeoplePost(request, env, store);
+        response = await handlePeoplePost(request, store);
       } else if (pathname === "/api/graph/connections" && method === "POST") {
-        response = await handleConnectionsPost(request, env, store);
+        response = await handleConnectionsPost(request, store);
       } else if (method === "PATCH" || method === "DELETE") {
         const match = pathname.match(/^\/api\/graph\/people\/([^/]+)$/);
         if (match) {
           const id = decodeURIComponent(match[1]!);
           response =
             method === "PATCH"
-              ? await handlePersonPatch(request, env, store, id)
-              : await handlePersonDelete(request, env, store, id);
+              ? await handlePersonPatch(request, store, id)
+              : await handlePersonDelete(request, store, id);
         }
       }
 

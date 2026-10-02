@@ -53,7 +53,8 @@ export function useAuth() {
       setState({
         loading: false,
         authenticated: Boolean(data.authenticated),
-        canEdit: Boolean(data.canEdit),
+        // Public board: editing is always allowed.
+        canEdit: true,
         discordConfigured: Boolean(data.discordConfigured),
         roleGateConfigured: Boolean(data.roleGateConfigured),
         user: data.user ?? null,

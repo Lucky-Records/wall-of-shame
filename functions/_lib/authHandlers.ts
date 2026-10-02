@@ -165,6 +165,7 @@ export async function handleMeGet(
   request: Request,
   env: DiscordEnv,
 ): Promise<Response> {
+  // Public edit mode: anyone can mutate the board; Discord login is optional/legacy.
   const configured = hasDiscordOAuthConfig(env);
   const roleGateReady = hasRoleGateConfig(env);
   const session = await getSessionFromRequest(request, env.SESSION_SECRET);
@@ -173,7 +174,8 @@ export async function handleMeGet(
     return jsonResponse({
       ok: true,
       authenticated: false,
-      canEdit: false,
+      canEdit: true,
+      publicEdit: true,
       discordConfigured: configured,
       roleGateConfigured: roleGateReady,
       user: null,
@@ -183,7 +185,8 @@ export async function handleMeGet(
   return jsonResponse({
     ok: true,
     authenticated: true,
-    canEdit: Boolean(session.canEdit),
+    canEdit: true,
+    publicEdit: true,
     discordConfigured: configured,
     roleGateConfigured: roleGateReady,
     user: {
