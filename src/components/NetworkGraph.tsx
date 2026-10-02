@@ -24,14 +24,12 @@ import type {
   Role,
 } from "../types";
 import {
-  CONNECTION_KIND_LABELS,
   connectionTagSegments,
   PERSON_DRAG_MIME,
   personMatchesRoles,
   primaryRole,
   ROLE_COLORS,
   ROLE_LABELS,
-  type ConnectionKind,
   type ConnectionTagSegment,
 } from "../types";
 
@@ -147,7 +145,14 @@ function parsePersonDraft(raw: string): PersonDraft | null {
 
 function getCurvature(index: number, maxIndex: number): number {
   if (maxIndex <= 0) return DEFAULT_EDGE_CURVATURE;
-  return DEFAULT_EDGE_CURVATURE * (index / Math.max(Math.abs(maxIndex), 1));
+  if (index < 0) return -getCurvature(-index, maxIndex);
+  // Match @sigma/edge-curve parallel-edges example: spread strands clearly.
+  const amplitude = 3.5;
+  const maxCurvature =
+    amplitude *
+    (1 - Math.exp(-maxIndex / amplitude)) *
+    DEFAULT_EDGE_CURVATURE;
+  return (maxCurvature * index) / Math.max(maxIndex, 1e-6);
 }
 
 function roundRect(
@@ -240,9 +245,16 @@ function drawAttachedNodeLabel(
 }
 
 /**
- * Paint the strand tag ON its connection curve (Bezier midpoint, middle baseline).
- * Used for both straight and curved edge programs so every kind/role label
- * (Fren, Mod, Streamerkollege, Headmod, …) sits on its own parallel strand.
+ * Paint ONE strand label ON that strand's curve (Bezier t=0.5, middle baseline).
+ *
+ * Label drawing receives viewport coordinates (Y down). The curve shader applies
+ * curvature in framed-graph space (Y up) and the camera matrix flips Y — so the
+ * viewport control-point formula must match @sigma/edge-curve's label helper:
+ *   anchor = mid + (diffY, -diffX) * curvature * orientation
+ * Using the raw shader formula mid+(-diffY,diffX)*c here mirrors labels onto
+ * the opposite parallel strand (Fren text on Mod line, orphan floats, etc.).
+ *
+ * Each parallel edge already carries a single label+color for its kind/role.
  */
 function drawColoredEdgeLabel(
   context: CanvasRenderingContext2D,
@@ -251,35 +263,23 @@ function drawColoredEdgeLabel(
     size?: number;
     color?: string;
     curvature?: number;
-    kinds?: ConnectionKind[];
-    roles?: Role[];
   },
   sourceData: { x: number; y: number; size: number },
   targetData: { x: number; y: number; size: number },
   settings: Settings,
 ) {
-  const kinds = Array.isArray(edgeData.kinds) ? edgeData.kinds : [];
-  const roles = Array.isArray(edgeData.roles) ? edgeData.roles : [];
-  let segments: ConnectionTagSegment[] = connectionTagSegments(kinds, roles);
+  const text = edgeData.label?.trim();
+  if (!text || text === "—") return;
 
-  if (!segments.length) {
-    const fallback = edgeData.label?.trim();
-    if (!fallback || fallback === "—") return;
-    segments = [
-      {
-        text: fallback,
-        color:
-          typeof edgeData.color === "string" && edgeData.color
-            ? edgeData.color
-            : "#cbd5e1",
-      },
-    ];
-  }
+  const color =
+    typeof edgeData.color === "string" && edgeData.color
+      ? edgeData.color
+      : "#cbd5e1";
 
   const size = settings.edgeLabelSize || 11;
   const font = settings.edgeLabelFont || "Inter, system-ui, sans-serif";
   const weight = settings.edgeLabelWeight || "600";
-  // 0 is valid (straight strand) — do not fall back to DEFAULT
+  // 0 is valid (middle parallel strand) — do not fall back to DEFAULT
   const curvature =
     typeof edgeData.curvature === "number" ? edgeData.curvature : 0;
 
@@ -296,14 +296,12 @@ function drawColoredEdgeLabel(
   const diff = Math.sqrt(diffX * diffX + diffY * diffY);
   if (!Number.isFinite(diff) || diff < 1) return;
 
-  // Match @sigma/edge-curve shader control point:
-  //   cpB = mid + (-diffY, diffX) * curvature
-  // After optional LTR swap, negate curvature so the visual strand still matches.
-  const signedCurvature = ltr ? curvature : -curvature;
-  const anchorX = centerX - diffY * signedCurvature;
-  const anchorY = centerY + diffX * signedCurvature;
+  // Viewport-space control point (same as createDrawCurvedEdgeLabel)
+  const orientation = ltr ? 1 : -1;
+  const anchorX = centerX + diffY * curvature * orientation;
+  const anchorY = centerY - diffX * curvature * orientation;
 
-  // Bezier point + tangent at t = 0.5 (true curve midpoint)
+  // Bezier point + tangent at t = 0.5 (true curve midpoint on THIS strand)
   const t = 0.5;
   const mt = 1 - t;
   const midX =
@@ -316,20 +314,15 @@ function drawColoredEdgeLabel(
     2 * mt * (anchorY - sourceY) + 2 * t * (targetY - anchorY);
   const angle = Math.atan2(tangentY, tangentX);
 
-  const sep = " · ";
   context.save();
   context.font = `${weight} ${size}px ${font}`;
   context.textBaseline = "middle";
   context.textAlign = "left";
 
-  const widths = segments.map((s) => context.measureText(s.text).width);
-  const sepW = context.measureText(sep).width;
-  const totalW =
-    widths.reduce((a, b) => a + b, 0) +
-    sepW * Math.max(segments.length - 1, 0);
+  const textW = context.measureText(text).width;
 
   // Skip if chord is shorter than the two node radii
-  if (diff < sourceData.size + targetData.size + totalW * 0.35) {
+  if (diff < sourceData.size + targetData.size + textW * 0.35) {
     context.restore();
     return;
   }
@@ -343,25 +336,16 @@ function drawColoredEdgeLabel(
   context.fillStyle = "rgba(11, 16, 32, 0.78)";
   roundRect(
     context,
-    -totalW / 2 - padX,
+    -textW / 2 - padX,
     -size / 2 - padY,
-    totalW + padX * 2,
+    textW + padX * 2,
     size + padY * 2,
     5,
   );
   context.fill();
 
-  let cursorX = -totalW / 2;
-  segments.forEach((segment, i) => {
-    context.fillStyle = segment.color;
-    context.fillText(segment.text, cursorX, 0);
-    cursorX += widths[i]!;
-    if (i < segments.length - 1) {
-      context.fillStyle = "#64748b";
-      context.fillText(sep, cursorX, 0);
-      cursorX += sepW;
-    }
-  });
+  context.fillStyle = color;
+  context.fillText(text, -textW / 2, 0);
 
   context.restore();
 }
@@ -610,19 +594,16 @@ export function NetworkGraph({
       const n = strands.length;
       const strandSize = n > 1 ? 2.0 : 2.4;
 
+      // kinds first, then roles — same order as connectionTagSegments
       strands.forEach((tag, i) => {
         const key = n === 1 ? conn.id : `${conn.id}__strand_${i}`;
-        const kindMatch = kinds.find(
-          (k) => CONNECTION_KIND_LABELS[k] === tag.text,
-        );
-        const roleMatch = roles.find((r) => ROLE_LABELS[r] === tag.text);
         const hasLabel = tag.text !== "—";
+        // One edge attribute pair per strand: label+color alone drive painting
+        // (avoids Mod-kind vs Mod-role label collisions and mismatched rebuilds).
         graph.addEdgeWithKey(key, conn.source, conn.target, {
           size: strandSize,
           color: tag.color,
           label: hasLabel ? tag.text : null,
-          kinds: kindMatch ? [kindMatch] : [],
-          roles: roleMatch ? [roleMatch] : [],
           type: "straight" as const,
           forceLabel: hasLabel,
         });
