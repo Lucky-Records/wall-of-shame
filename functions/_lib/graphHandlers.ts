@@ -3,16 +3,17 @@ import { notifyGraphMutation, type NotifyEnv } from "./notify.ts";
 import {
   allocatePersonId,
   DEFAULT_CONNECTION_KIND,
-  isCategory,
   isConnection,
   isConnectionKind,
   isFiniteCoord,
   isPerson,
+  normalizeRoles,
   withCoords,
   type Connection,
   type ConnectionKind,
   type GraphStore,
   type Person,
+  type Role,
 } from "./graphStore.ts";
 
 export async function handleGraphGet(store: GraphStore): Promise<Response> {
@@ -20,46 +21,55 @@ export async function handleGraphGet(store: GraphStore): Promise<Response> {
   return jsonResponse({ ok: true, ...data });
 }
 
+function parseRolesFromBody(body: Record<string, unknown>): Role[] | null {
+  if (body.roles !== undefined) {
+    const roles = normalizeRoles(body.roles, body.category);
+    return roles.length ? roles : null;
+  }
+  if (body.category !== undefined) {
+    const roles = normalizeRoles(undefined, body.category);
+    return roles.length ? roles : null;
+  }
+  return null;
+}
+
 export async function handlePeoplePost(
   request: Request,
   store: GraphStore,
   env?: NotifyEnv,
 ): Promise<Response> {
-  const body = await readJsonBody<Partial<Person>>(request);
+  const body = await readJsonBody<Record<string, unknown>>(request);
   if (!body) {
     return jsonResponse({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const draft = {
-    name: typeof body.name === "string" ? body.name.trim() : "",
-    category: body.category,
-    avatarUrl: typeof body.avatarUrl === "string" ? body.avatarUrl.trim() : "",
-    profileUrl:
-      typeof body.profileUrl === "string" ? body.profileUrl.trim() : "",
-    platform: body.platform,
-    x: body.x,
-    y: body.y,
-  };
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const avatarUrl =
+    typeof body.avatarUrl === "string" ? body.avatarUrl.trim() : "";
+  const profileUrl =
+    typeof body.profileUrl === "string" ? body.profileUrl.trim() : "";
+  const platform = body.platform;
+  const roles = parseRolesFromBody(body);
 
   if (
-    !draft.name ||
-    !isCategory(draft.category) ||
-    !draft.avatarUrl ||
-    !draft.profileUrl ||
-    typeof draft.platform !== "string"
+    !name ||
+    !roles ||
+    !avatarUrl ||
+    !profileUrl ||
+    typeof platform !== "string"
   ) {
     return jsonResponse(
-      { ok: false, error: "Missing or invalid person fields." },
+      { ok: false, error: "Missing or invalid person fields (roles required)." },
       { status: 400 },
     );
   }
 
   const candidate: Omit<Person, "id"> & { id?: string } = {
-    name: draft.name,
-    category: draft.category,
-    avatarUrl: draft.avatarUrl,
-    profileUrl: draft.profileUrl,
-    platform: draft.platform as Person["platform"],
+    name,
+    roles,
+    avatarUrl,
+    profileUrl,
+    platform: platform as Person["platform"],
   };
 
   if (!isPerson({ ...candidate, id: "tmp" })) {
@@ -81,13 +91,13 @@ export async function handlePeoplePost(
     {
       id: allocatePersonId(candidate.name, data.people),
       name: candidate.name,
-      category: candidate.category,
+      roles: candidate.roles,
       avatarUrl: candidate.avatarUrl,
       profileUrl: candidate.profileUrl,
       platform: candidate.platform,
     },
-    draft.x,
-    draft.y,
+    body.x,
+    body.y,
   );
 
   data.people.push(person);
@@ -103,6 +113,7 @@ export async function handlePersonPatch(
   env?: NotifyEnv,
 ): Promise<Response> {
   const body = await readJsonBody<{
+    roles?: unknown;
     category?: unknown;
     x?: unknown;
     y?: unknown;
@@ -111,22 +122,28 @@ export async function handlePersonPatch(
     return jsonResponse({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const hasCategory = body.category !== undefined;
-  const hasPosition =
-    body.x !== undefined || body.y !== undefined;
+  const hasRoles =
+    body.roles !== undefined || body.category !== undefined;
+  const hasPosition = body.x !== undefined || body.y !== undefined;
 
-  if (!hasCategory && !hasPosition) {
+  if (!hasRoles && !hasPosition) {
     return jsonResponse(
-      { ok: false, error: "Provide category and/or x,y position." },
+      { ok: false, error: "Provide roles and/or x,y position." },
       { status: 400 },
     );
   }
-  if (hasCategory && !isCategory(body.category)) {
-    return jsonResponse(
-      { ok: false, error: "Provide a valid category." },
-      { status: 400 },
-    );
+
+  let nextRoles: Role[] | null = null;
+  if (hasRoles) {
+    nextRoles = parseRolesFromBody(body as Record<string, unknown>);
+    if (!nextRoles) {
+      return jsonResponse(
+        { ok: false, error: "Provide at least one valid role." },
+        { status: 400 },
+      );
+    }
   }
+
   if (hasPosition && !(isFiniteCoord(body.x) && isFiniteCoord(body.y))) {
     return jsonResponse(
       { ok: false, error: "Position requires finite x and y." },
@@ -140,9 +157,12 @@ export async function handlePersonPatch(
     return jsonResponse({ ok: false, error: "Person not found." }, { status: 404 });
   }
 
-  let updated: Person = { ...data.people[idx]! };
-  if (hasCategory && isCategory(body.category)) {
-    updated = { ...updated, category: body.category };
+  let updated: Person = {
+    ...data.people[idx]!,
+    roles: [...data.people[idx]!.roles],
+  };
+  if (nextRoles) {
+    updated = { ...updated, roles: nextRoles };
   }
   if (hasPosition && isFiniteCoord(body.x) && isFiniteCoord(body.y)) {
     updated = { ...updated, x: body.x, y: body.y };
@@ -150,7 +170,7 @@ export async function handlePersonPatch(
   data.people[idx] = updated;
   await store.set(data);
   // Position-only moves should not spam Discord #liste
-  if (hasCategory) {
+  if (hasRoles) {
     await notifyGraphMutation(env);
   }
   return jsonResponse({ ok: true, person: updated });
@@ -196,20 +216,19 @@ export async function handleConnectionsPost(
     );
   }
 
+  // Directed: same source→target→kind is a duplicate; reverse is allowed.
   const exists = data.connections.some(
-    (c) =>
-      (c.source === source && c.target === target) ||
-      (c.source === target && c.target === source),
+    (c) => c.source === source && c.target === target && c.kind === kind,
   );
   if (exists) {
     return jsonResponse(
-      { ok: false, error: "Those two are already connected." },
+      { ok: false, error: "That directed connection already exists." },
       { status: 409 },
     );
   }
 
   const connection: Connection = {
-    id: `c-${source}-${target}-${Date.now()}`,
+    id: `c-${source}-${target}-${kind}-${Date.now()}`,
     source,
     target,
     kind,
@@ -272,3 +291,5 @@ export async function handlePersonDelete(
   await notifyGraphMutation(env);
   return jsonResponse({ ok: true, person: removed });
 }
+
+// silence unused in case callers check role helpers

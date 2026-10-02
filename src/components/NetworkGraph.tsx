@@ -1,34 +1,54 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import Graph from "graphology";
+import { MultiGraph } from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
 import { NodeImageProgram } from "@sigma/node-image";
+import {
+  createDrawCurvedEdgeLabel,
+  DEFAULT_EDGE_CURVATURE,
+  DEFAULT_EDGE_CURVE_PROGRAM_OPTIONS,
+  EdgeCurvedArrowProgram,
+  indexParallelEdgesIndex,
+} from "@sigma/edge-curve";
+import { EdgeArrowProgram } from "sigma/rendering";
 import type {
-  Category,
   Connection,
   GraphPosition,
   Person,
   PersonDraft,
+  Role,
 } from "../types";
 import {
-  CATEGORY_COLORS,
   CONNECTION_KIND_COLORS,
   CONNECTION_KIND_LABELS,
   DEFAULT_CONNECTION_KIND,
   PERSON_DRAG_MIME,
+  personMatchesRoles,
+  primaryRole,
+  ROLE_COLORS,
+  ROLE_LABELS,
 } from "../types";
 import type { ConnectionKind } from "../types";
 
 interface NetworkGraphProps {
   people: Person[];
   connections: Connection[];
-  visibleCategories: Set<Category>;
+  visibleRoles: Set<Role>;
   connectFromId: string | null;
   positionHints: Record<string, GraphPosition>;
   onNodeClick: (personId: string) => void;
   onPersonDrop: (draft: PersonDraft, position: GraphPosition) => void;
   onNodeMove: (personId: string, position: GraphPosition) => void;
 }
+
+type BadgePos = {
+  id: string;
+  name: string;
+  roles: Role[];
+  x: number;
+  y: number;
+  size: number;
+};
 
 function seededPosition(id: string, index: number, total: number) {
   let hash = 0;
@@ -67,25 +87,39 @@ function resolvePosition(
   return seededPosition(person.id, index, total);
 }
 
+function isRoleValue(value: unknown): value is Role {
+  return (
+    value === "Streamer" ||
+    value === "Mod" ||
+    value === "User" ||
+    value === "Ex-Mod" ||
+    value === "Headmod" ||
+    value === "gebannt"
+  );
+}
+
 function parsePersonDraft(raw: string): PersonDraft | null {
   try {
-    const data = JSON.parse(raw) as Partial<PersonDraft>;
+    const data = JSON.parse(raw) as Partial<PersonDraft> & {
+      category?: unknown;
+    };
     if (
       typeof data.name !== "string" ||
       typeof data.avatarUrl !== "string" ||
       typeof data.profileUrl !== "string" ||
-      typeof data.category !== "string" ||
       typeof data.platform !== "string"
     ) {
       return null;
     }
-    if (
-      data.category !== "Streamer" &&
-      data.category !== "Mod" &&
-      data.category !== "Bubble"
-    ) {
-      return null;
+    let roles: Role[] = [];
+    if (Array.isArray(data.roles)) {
+      roles = data.roles.filter(isRoleValue);
+    } else if (isRoleValue(data.category)) {
+      roles = [data.category];
+    } else if (data.category === "Bubble") {
+      roles = ["User"];
     }
+    if (!roles.length) return null;
     if (
       data.platform !== "twitch" &&
       data.platform !== "twitter" &&
@@ -98,7 +132,7 @@ function parsePersonDraft(raw: string): PersonDraft | null {
       name: data.name,
       avatarUrl: data.avatarUrl,
       profileUrl: data.profileUrl,
-      category: data.category,
+      roles,
       platform: data.platform,
     };
   } catch {
@@ -106,10 +140,15 @@ function parsePersonDraft(raw: string): PersonDraft | null {
   }
 }
 
+function getCurvature(index: number, maxIndex: number): number {
+  if (maxIndex <= 0) return DEFAULT_EDGE_CURVATURE;
+  return DEFAULT_EDGE_CURVATURE * (index / Math.max(Math.abs(maxIndex), 1));
+}
+
 export function NetworkGraph({
   people,
   connections,
-  visibleCategories,
+  visibleRoles,
   connectFromId,
   positionHints,
   onNodeClick,
@@ -119,11 +158,12 @@ export function NetworkGraph({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const sigmaRef = useRef<Sigma | null>(null);
-  const graphRef = useRef<Graph | null>(null);
+  const graphRef = useRef<MultiGraph | null>(null);
   const onNodeClickRef = useRef(onNodeClick);
   const onPersonDropRef = useRef(onPersonDrop);
   const onNodeMoveRef = useRef(onNodeMove);
   const positionHintsRef = useRef(positionHints);
+  const peopleRef = useRef(people);
   const draggedNodeRef = useRef<string | null>(null);
   const dragMovedRef = useRef(false);
   const skipClickRef = useRef(false);
@@ -131,13 +171,15 @@ export function NetworkGraph({
   onPersonDropRef.current = onPersonDrop;
   onNodeMoveRef.current = onNodeMove;
   positionHintsRef.current = positionHints;
+  peopleRef.current = people;
 
   const [dragOver, setDragOver] = useState(false);
   const [draggingNode, setDraggingNode] = useState(false);
+  const [badges, setBadges] = useState<BadgePos[]>([]);
 
   const visiblePeople = useMemo(
-    () => people.filter((p) => visibleCategories.has(p.category)),
-    [people, visibleCategories],
+    () => people.filter((p) => personMatchesRoles(p, visibleRoles)),
+    [people, visibleRoles],
   );
 
   const visibleIds = useMemo(
@@ -157,7 +199,7 @@ export function NetworkGraph({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const graph = new Graph();
+    const graph = new MultiGraph({ type: "directed", multi: true });
     graphRef.current = graph;
 
     const sigma = new Sigma(graph, containerRef.current, {
@@ -170,6 +212,7 @@ export function NetworkGraph({
       labelFont: "Inter, system-ui, sans-serif",
       defaultNodeColor: "#94a3b8",
       defaultEdgeColor: "#475569",
+      defaultEdgeType: "straight",
       edgeLabelSize: 11,
       edgeLabelWeight: "600",
       edgeLabelFont: "Inter, system-ui, sans-serif",
@@ -178,9 +221,35 @@ export function NetworkGraph({
       nodeProgramClasses: {
         image: NodeImageProgram,
       },
+      edgeProgramClasses: {
+        straight: EdgeArrowProgram,
+        curved: EdgeCurvedArrowProgram,
+      },
+      defaultDrawEdgeLabel: createDrawCurvedEdgeLabel(DEFAULT_EDGE_CURVE_PROGRAM_OPTIONS),
     });
 
     sigmaRef.current = sigma;
+
+    function syncBadges() {
+      const s = sigmaRef.current;
+      if (!s) return;
+      const next: BadgePos[] = [];
+      for (const person of peopleRef.current) {
+        if (!s.getGraph().hasNode(person.id)) continue;
+        const display = s.getNodeDisplayData(person.id);
+        if (!display || display.hidden) continue;
+        const viewport = s.graphToViewport({ x: display.x, y: display.y });
+        next.push({
+          id: person.id,
+          name: person.name,
+          roles: person.roles,
+          x: viewport.x,
+          y: viewport.y,
+          size: display.size,
+        });
+      }
+      setBadges(next);
+    }
 
     function endNodeDrag() {
       const nodeId = draggedNodeRef.current;
@@ -204,6 +273,7 @@ export function NetworkGraph({
         skipClickRef.current = true;
         onNodeMoveRef.current(nodeId, { x, y });
       }
+      syncBadges();
     }
 
     sigma.on("downNode", ({ node, event }) => {
@@ -223,6 +293,7 @@ export function NetworkGraph({
       graphRef.current.setNodeAttribute(nodeId, "y", pos.y);
       dragMovedRef.current = true;
       event.preventSigmaDefault();
+      syncBadges();
     });
 
     sigma.on("upNode", () => {
@@ -240,6 +311,8 @@ export function NetworkGraph({
       }
       onNodeClickRef.current(node);
     });
+
+    sigma.on("afterRender", syncBadges);
 
     return () => {
       sigma.kill();
@@ -266,7 +339,8 @@ export function NetworkGraph({
     }
 
     visiblePeople.forEach((person, index) => {
-      const color = CATEGORY_COLORS[person.category];
+      const main = primaryRole(person.roles);
+      const color = ROLE_COLORS[main];
       const highlighted = connectFromId === person.id;
       const size = highlighted ? 28 : 22;
       const pos = resolvePosition(
@@ -277,47 +351,38 @@ export function NetworkGraph({
       );
       const pinned =
         hasCoords(person) || hasCoords(positionHintsRef.current[person.id]);
+      const label = person.name;
 
       if (graph.hasNode(person.id)) {
         graph.mergeNodeAttributes(person.id, {
-          label: person.name,
+          label,
           color,
           size,
           image: person.avatarUrl,
           type: "image",
-          category: person.category,
+          roles: person.roles,
         });
         if (pinned) {
           graph.mergeNodeAttributes(person.id, { x: pos.x, y: pos.y });
         }
       } else {
         graph.addNode(person.id, {
-          label: person.name,
+          label,
           x: pos.x,
           y: pos.y,
           size,
           color,
           image: person.avatarUrl,
           type: "image",
-          category: person.category,
+          roles: person.roles,
         });
         newlyAdded.push(person.id);
       }
     });
 
-    const existingEdges = new Set(graph.edges());
-    const wantedEdgeKeys = new Set(
-      visibleConnections.map((c) => `${c.source}::${c.target}`),
-    );
-
-    for (const edge of existingEdges) {
-      const s = graph.source(edge);
-      const t = graph.target(edge);
-      const key = `${s}::${t}`;
-      const rev = `${t}::${s}`;
-      if (!wantedEdgeKeys.has(key) && !wantedEdgeKeys.has(rev)) {
-        graph.dropEdge(edge);
-      }
+    // Rebuild edges from scratch so parallel/directed state stays correct
+    for (const edge of graph.edges()) {
+      graph.dropEdge(edge);
     }
 
     function edgeAttrs(conn: Connection) {
@@ -326,28 +391,56 @@ export function NetworkGraph({
           ? conn.kind
           : DEFAULT_CONNECTION_KIND;
       return {
-        size: 2,
+        size: 2.4,
         color: CONNECTION_KIND_COLORS[kind],
         label: CONNECTION_KIND_LABELS[kind],
         kind,
+        type: "straight" as const,
       };
     }
 
     for (const conn of visibleConnections) {
       if (!graph.hasNode(conn.source) || !graph.hasNode(conn.target)) continue;
-      const attrs = edgeAttrs(conn);
-      if (graph.hasEdge(conn.source, conn.target)) {
-        const edge = graph.edge(conn.source, conn.target);
-        graph.mergeEdgeAttributes(edge, attrs);
-        continue;
-      }
-      if (graph.hasEdge(conn.target, conn.source)) {
-        const edge = graph.edge(conn.target, conn.source);
-        graph.mergeEdgeAttributes(edge, attrs);
-        continue;
-      }
-      graph.addEdge(conn.source, conn.target, attrs);
+      graph.addEdgeWithKey(conn.id, conn.source, conn.target, edgeAttrs(conn));
     }
+
+    indexParallelEdgesIndex(graph, {
+      edgeIndexAttribute: "parallelIndex",
+      edgeMinIndexAttribute: "parallelMinIndex",
+      edgeMaxIndexAttribute: "parallelMaxIndex",
+    });
+
+    graph.forEachEdge(
+      (
+        edge,
+        {
+          parallelIndex,
+          parallelMinIndex,
+          parallelMaxIndex,
+        }: {
+          parallelIndex?: number | null;
+          parallelMinIndex?: number | null;
+          parallelMaxIndex?: number | null;
+        },
+      ) => {
+        if (typeof parallelMinIndex === "number") {
+          graph.mergeEdgeAttributes(edge, {
+            type: parallelIndex ? "curved" : "straight",
+            curvature: getCurvature(
+              parallelIndex ?? 0,
+              parallelMaxIndex ?? 1,
+            ),
+          });
+        } else if (typeof parallelIndex === "number") {
+          graph.mergeEdgeAttributes(edge, {
+            type: "curved",
+            curvature: getCurvature(parallelIndex, parallelMaxIndex ?? 1),
+          });
+        } else {
+          graph.setEdgeAttribute(edge, "type", "straight");
+        }
+      },
+    );
 
     const unpinnedNew = newlyAdded.filter((id) => {
       const person = visiblePeople.find((p) => p.id === id);
@@ -457,6 +550,28 @@ export function NetworkGraph({
       onDrop={handleDrop}
     >
       <div className="graph-canvas" ref={containerRef} />
+      <div className="node-role-overlay" aria-hidden="true">
+        {badges.map((b) => (
+          <div
+            key={b.id}
+            className="node-role-badge-wrap"
+            style={{
+              transform: `translate(${b.x}px, ${b.y + b.size + 10}px) translate(-50%, 0)`,
+            }}
+          >
+            {b.roles.map((role) => (
+              <span
+                key={role}
+                className="node-role-badge"
+                style={{ background: ROLE_COLORS[role] }}
+                title={ROLE_LABELS[role]}
+              >
+                {ROLE_LABELS[role]}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
       {dragOver ? (
         <div className="graph-drop-hint" aria-hidden="true">
           Hier ablegen
@@ -465,3 +580,5 @@ export function NetworkGraph({
     </div>
   );
 }
+
+// silence unused helper in tree-shakey builds

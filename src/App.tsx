@@ -7,23 +7,23 @@ import {
   apiAddPerson,
   apiDeleteConnection,
   apiDeletePerson,
-  apiUpdateCategory,
   apiUpdatePosition,
+  apiUpdateRoles,
   fetchGraph,
 } from "./hooks/useGraphApi";
 import type {
-  Category,
   Connection,
   ConnectionKind,
   GraphPosition,
   Person,
   PersonDraft,
+  Role,
 } from "./types";
 import {
-  ALL_CATEGORIES,
-  CATEGORY_LABELS,
+  ALL_ROLES,
   CONNECTION_KIND_LABELS,
   DEFAULT_CONNECTION_KIND,
+  formatRoles,
 } from "./types";
 
 function hasCoords(
@@ -43,8 +43,8 @@ export default function App() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [graphLoading, setGraphLoading] = useState(true);
   const [graphError, setGraphError] = useState<string | null>(null);
-  const [visibleCategories, setVisibleCategories] = useState<Set<Category>>(
-    () => new Set(ALL_CATEGORIES),
+  const [visibleRoles, setVisibleRoles] = useState<Set<Role>>(
+    () => new Set(ALL_ROLES),
   );
   const [connectFromId, setConnectFromId] = useState<string | null>(null);
   const [connectKind, setConnectKind] = useState<ConnectionKind>(
@@ -109,7 +109,7 @@ export default function App() {
         }
         setPreviewClearToken((n) => n + 1);
         flash(
-          `${person.name} als ${CATEGORY_LABELS[person.category]} hinzugefügt.`,
+          `${person.name} als ${formatRoles(person.roles)} hinzugefügt.`,
         );
       } catch (err) {
         flash(
@@ -146,21 +146,23 @@ export default function App() {
     [flash],
   );
 
-  const handleUpdateCategory = useCallback(
-    async (personId: string, category: Category) => {
+  const handleUpdateRoles = useCallback(
+    async (personId: string, roles: Role[]) => {
+      if (!roles.length) {
+        flash("Mindestens eine Rolle ist nötig.");
+        return;
+      }
       try {
-        const person = await apiUpdateCategory(personId, category);
+        const person = await apiUpdateRoles(personId, roles);
         setPeople((prev) =>
           prev.map((p) => (p.id === person.id ? person : p)),
         );
-        flash(
-          `${person.name} → ${CATEGORY_LABELS[category]} aktualisiert.`,
-        );
+        flash(`${person.name} → ${formatRoles(roles)} aktualisiert.`);
       } catch (err) {
         flash(
           err instanceof Error
             ? err.message
-            : "Kategorie konnte nicht aktualisiert werden.",
+            : "Rollen konnten nicht aktualisiert werden.",
         );
       }
     },
@@ -209,11 +211,10 @@ export default function App() {
       }
       const exists = connections.some(
         (c) =>
-          (c.source === sourceId && c.target === targetId) ||
-          (c.source === targetId && c.target === sourceId),
+          c.source === sourceId && c.target === targetId && c.kind === kind,
       );
       if (exists) {
-        flash("Diese beiden sind schon verbunden.");
+        flash("Diese gerichtete Verbindung gibt es schon.");
         return;
       }
       try {
@@ -223,7 +224,7 @@ export default function App() {
         const a = people.find((p) => p.id === sourceId)?.name ?? sourceId;
         const b = people.find((p) => p.id === targetId)?.name ?? targetId;
         flash(
-          `${a} ↔ ${b} · ${CONNECTION_KIND_LABELS[connection.kind]}`,
+          `${a} → ${b} · ${CONNECTION_KIND_LABELS[connection.kind]}`,
         );
       } catch (err) {
         flash(
@@ -243,14 +244,14 @@ export default function App() {
       const a = people.find((p) => p.id === conn.source)?.name ?? conn.source;
       const b = people.find((p) => p.id === conn.target)?.name ?? conn.target;
       const ok = window.confirm(
-        `Verbindung „${CONNECTION_KIND_LABELS[conn.kind]}“ zwischen ${a} und ${b} löschen?`,
+        `Verbindung „${CONNECTION_KIND_LABELS[conn.kind]}“ ${a} → ${b} löschen?`,
       );
       if (!ok) return;
       try {
         const removed = await apiDeleteConnection(connectionId);
         setConnections((prev) => prev.filter((c) => c.id !== removed.id));
         flash(
-          `${a} ↔ ${b} · ${CONNECTION_KIND_LABELS[removed.kind]} entfernt.`,
+          `${a} → ${b} · ${CONNECTION_KIND_LABELS[removed.kind]} entfernt.`,
         );
       } catch (err) {
         flash(
@@ -285,14 +286,14 @@ export default function App() {
     [handleAddPerson],
   );
 
-  const toggleCategory = useCallback((category: Category) => {
-    setVisibleCategories((prev) => {
+  const toggleRole = useCallback((role: Role) => {
+    setVisibleRoles((prev) => {
       const next = new Set(prev);
-      if (next.has(category)) {
+      if (next.has(role)) {
         if (next.size === 1) return prev;
-        next.delete(category);
+        next.delete(role);
       } else {
-        next.add(category);
+        next.add(role);
       }
       return next;
     });
@@ -305,8 +306,8 @@ export default function App() {
           <p className="eyebrow">Lucky · öffentlich</p>
           <h1>The Wall of Shame</h1>
           <p className="tagline">
-            Interaktive Community-Netzwerk-Karte. Jeder kann Personen
-            hinzufügen, Kategorien ändern und Verbindungen ziehen.
+            Interaktive Community-Netzwerk-Karte. Mehrfach-Rollen, gerichtete
+            Verbindungen (Pfeile) und sichtbare Funktionen auf dem Brett.
           </p>
         </header>
 
@@ -320,8 +321,8 @@ export default function App() {
           onAddPerson={(draft) => {
             void handleAddPerson(draft);
           }}
-          onUpdateCategory={(id, category) => {
-            void handleUpdateCategory(id, category);
+          onUpdateRoles={(id, roles) => {
+            void handleUpdateRoles(id, roles);
           }}
           onDeletePerson={(id) => {
             void handleDeletePerson(id);
@@ -338,10 +339,7 @@ export default function App() {
         />
       </aside>
       <main className="stage">
-        <CategoryFilters
-          visible={visibleCategories}
-          onToggle={toggleCategory}
-        />
+        <CategoryFilters visible={visibleRoles} onToggle={toggleRole} />
         {graphLoading ? (
           <p className="stage-hint">Netzwerk wird geladen…</p>
         ) : graphError ? (
@@ -350,7 +348,7 @@ export default function App() {
           <NetworkGraph
             people={people}
             connections={connections}
-            visibleCategories={visibleCategories}
+            visibleRoles={visibleRoles}
             connectFromId={connectFromId}
             positionHints={positionHints}
             onNodeClick={handleNodeClick}
@@ -361,9 +359,8 @@ export default function App() {
           />
         )}
         <p className="stage-hint">
-          Profil-Icons ziehen zum Verschieben · Hintergrund ziehen zum
-          Schieben · Scrollen zum Zoomen · Verbindungstyp wählen, dann Knoten
-          tippen
+          Profil-Icons ziehen zum Verschieben · Hintergrund schieben · Scrollen
+          zoomen · Pfeile zeigen Richtung A → B · Rollen-Badges am Knoten
         </p>
       </main>
     </div>

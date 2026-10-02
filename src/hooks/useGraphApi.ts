@@ -1,4 +1,4 @@
-import type { Category, Connection, ConnectionKind, Person } from "../types";
+import type { Connection, ConnectionKind, Person, Role } from "../types";
 
 export async function fetchGraph(): Promise<{
   people: Person[];
@@ -37,15 +37,15 @@ export async function apiAddPerson(
   return data.person;
 }
 
-export async function apiUpdateCategory(
+export async function apiUpdateRoles(
   personId: string,
-  category: Category,
+  roles: Role[],
 ): Promise<Person> {
   const res = await fetch(`/api/graph/people/${encodeURIComponent(personId)}`, {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ category }),
+    body: JSON.stringify({ roles }),
   });
   const data = (await res.json()) as {
     ok?: boolean;
@@ -53,7 +53,7 @@ export async function apiUpdateCategory(
     error?: string;
   };
   if (!res.ok || !data.ok || !data.person) {
-    throw new Error(data.error ?? `Update category failed (${res.status}).`);
+    throw new Error(data.error ?? `Update roles failed (${res.status}).`);
   }
   return data.person;
 }

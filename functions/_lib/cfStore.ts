@@ -2,7 +2,6 @@ import {
   cloneGraph,
   createMemoryStore,
   normalizeGraph,
-  type GraphData,
   type GraphStore,
 } from "./graphStore.ts";
 import { GRAPH_SEED } from "./seedData.ts";
@@ -35,14 +34,21 @@ export function createKvStore(kv: KvLike): GraphStore {
       const raw = await kv.get(GRAPH_KEY, "json");
       if (looksLikeGraph(raw)) {
         const normalized = normalizeGraph(raw);
-        // Persist migration so unlabeled edges get kind once
-        const rawObj = raw as GraphData;
-        const needsWrite =
+        // Persist migration: roles[] + connection kind
+        const rawObj = raw as { people?: unknown[]; connections?: unknown[] };
+        const peopleNeedRoles =
+          !Array.isArray(rawObj.people) ||
+          rawObj.people.some((p) => {
+            if (!p || typeof p !== "object") return true;
+            const rec = p as Record<string, unknown>;
+            return !Array.isArray(rec.roles);
+          });
+        const edgesNeedKind =
           !Array.isArray(rawObj.connections) ||
           rawObj.connections.some(
             (c) => !c || typeof c !== "object" || !("kind" in c),
           );
-        if (needsWrite) {
+        if (peopleNeedRoles || edgesNeedKind) {
           await kv.put(GRAPH_KEY, JSON.stringify(normalized));
         }
         return cloneGraph(normalized);

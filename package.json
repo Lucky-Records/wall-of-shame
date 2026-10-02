@@ -12,6 +12,7 @@
     "pages:secrets": "wrangler pages secret bulk .env --project-name=wall-of-shame"
   },
   "dependencies": {
+    "@sigma/edge-curve": "^3.1.0",
     "@sigma/node-image": "^3.0.0",
     "graphology": "^0.26.0",
     "graphology-layout-forceatlas2": "^0.10.1",
@@ -30,5 +31,5 @@
     "vite": "^8.3.0",
     "wrangler": "^3.114.6"
   },
-  "description": "The Wall of Shame \u2014 interactive Discord community network map by Lucky"
+  "description": "The Wall of Shame — interactive Discord community network map by Lucky"
 }

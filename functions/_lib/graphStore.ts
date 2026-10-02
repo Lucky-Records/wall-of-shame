@@ -1,11 +1,20 @@
-export type Category = "Streamer" | "Mod" | "Bubble";
+export type Role =
+  | "Streamer"
+  | "Mod"
+  | "User"
+  | "Ex-Mod"
+  | "Headmod"
+  | "gebannt";
+
+/** Legacy single-category values (Bubble → User). */
+export type Category = Role | "Bubble";
 
 export type ConnectionKind = "Mod" | "Fren" | "Streamerkollege";
 
 export type Person = {
   id: string;
   name: string;
-  category: Category;
+  roles: Role[];
   avatarUrl: string;
   profileUrl: string;
   platform: "twitch" | "twitter" | "x" | "unknown";
@@ -31,7 +40,14 @@ export interface GraphStore {
   set(data: GraphData): Promise<void>;
 }
 
-const CATEGORIES = new Set<Category>(["Streamer", "Mod", "Bubble"]);
+const ROLES = new Set<Role>([
+  "Streamer",
+  "Mod",
+  "User",
+  "Ex-Mod",
+  "Headmod",
+  "gebannt",
+]);
 const PLATFORMS = new Set(["twitch", "twitter", "x", "unknown"]);
 const CONNECTION_KINDS = new Set<ConnectionKind>([
   "Mod",
@@ -40,10 +56,11 @@ const CONNECTION_KINDS = new Set<ConnectionKind>([
 ]);
 
 export const DEFAULT_CONNECTION_KIND: ConnectionKind = "Fren";
+export const DEFAULT_ROLE: Role = "User";
 
 export function cloneGraph(data: GraphData): GraphData {
   return {
-    people: data.people.map((p) => ({ ...p })),
+    people: data.people.map((p) => ({ ...p, roles: [...p.roles] })),
     connections: data.connections.map((c) => ({ ...c })),
   };
 }
@@ -60,8 +77,20 @@ export function createMemoryStore(seed: GraphData): GraphStore {
   };
 }
 
-export function isCategory(value: unknown): value is Category {
-  return typeof value === "string" && CATEGORIES.has(value as Category);
+export function isRole(value: unknown): value is Role {
+  return typeof value === "string" && ROLES.has(value as Role);
+}
+
+/** Accept Role or legacy Bubble (maps to User). */
+export function coerceRole(value: unknown): Role | null {
+  if (value === "Bubble") return "User";
+  if (isRole(value)) return value;
+  return null;
+}
+
+/** @deprecated Prefer isRole / coerceRole */
+export function isCategory(value: unknown): value is Role {
+  return coerceRole(value) !== null;
 }
 
 export function isConnectionKind(value: unknown): value is ConnectionKind {
@@ -74,13 +103,38 @@ export function isFiniteCoord(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+/** Normalize roles array; migrate legacy `category` / Bubble. */
+export function normalizeRoles(raw: unknown, legacyCategory?: unknown): Role[] {
+  const out: Role[] = [];
+  const seen = new Set<Role>();
+
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      const role = coerceRole(item);
+      if (role && !seen.has(role)) {
+        seen.add(role);
+        out.push(role);
+      }
+    }
+  }
+
+  if (out.length === 0) {
+    const fromCat = coerceRole(legacyCategory);
+    if (fromCat) out.push(fromCat);
+  }
+
+  if (out.length === 0) out.push(DEFAULT_ROLE);
+  return out;
+}
+
 export function isPerson(value: unknown): value is Person {
   if (!value || typeof value !== "object") return false;
   const p = value as Record<string, unknown>;
+  const roles = normalizeRoles(p.roles, p.category);
   const base =
     typeof p.id === "string" &&
     typeof p.name === "string" &&
-    isCategory(p.category) &&
+    roles.length > 0 &&
     typeof p.avatarUrl === "string" &&
     typeof p.profileUrl === "string" &&
     typeof p.platform === "string" &&
@@ -93,7 +147,7 @@ export function isPerson(value: unknown): value is Person {
 
 /** Copy optional layout coords onto a person object. */
 export function withCoords(person: Person, x?: unknown, y?: unknown): Person {
-  const next: Person = { ...person };
+  const next: Person = { ...person, roles: [...person.roles] };
   if (isFiniteCoord(x) && isFiniteCoord(y)) {
     next.x = x;
     next.y = y;
@@ -132,28 +186,47 @@ export function normalizeConnection(value: unknown): Connection | null {
   };
 }
 
+export function normalizePerson(value: unknown): Person | null {
+  if (!value || typeof value !== "object") return null;
+  const p = value as Record<string, unknown>;
+  if (
+    typeof p.id !== "string" ||
+    typeof p.name !== "string" ||
+    typeof p.avatarUrl !== "string" ||
+    typeof p.profileUrl !== "string" ||
+    typeof p.platform !== "string" ||
+    !PLATFORMS.has(p.platform)
+  ) {
+    return null;
+  }
+  const roles = normalizeRoles(p.roles, p.category);
+  const copy: Person = {
+    id: p.id,
+    name: p.name,
+    roles,
+    avatarUrl: p.avatarUrl,
+    profileUrl: p.profileUrl,
+    platform: p.platform as Person["platform"],
+  };
+  if (isFiniteCoord(p.x) && isFiniteCoord(p.y)) {
+    copy.x = p.x;
+    copy.y = p.y;
+  }
+  return copy;
+}
+
 export function normalizeGraph(raw: unknown): GraphData {
   if (!raw || typeof raw !== "object") {
     return { people: [], connections: [] };
   }
   const g = raw as Record<string, unknown>;
-  const people = Array.isArray(g.people)
-    ? g.people.filter(isPerson).map((p) => {
-        const copy: Person = {
-          id: p.id,
-          name: p.name,
-          category: p.category,
-          avatarUrl: p.avatarUrl,
-          profileUrl: p.profileUrl,
-          platform: p.platform,
-        };
-        if (isFiniteCoord(p.x) && isFiniteCoord(p.y)) {
-          copy.x = p.x;
-          copy.y = p.y;
-        }
-        return copy;
-      })
-    : [];
+  const people: Person[] = [];
+  if (Array.isArray(g.people)) {
+    for (const item of g.people) {
+      const person = normalizePerson(item);
+      if (person) people.push(person);
+    }
+  }
   const connections: Connection[] = [];
   if (Array.isArray(g.connections)) {
     for (const item of g.connections) {

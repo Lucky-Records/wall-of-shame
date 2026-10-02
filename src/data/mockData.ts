@@ -4,7 +4,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "lucky",
     name: "Lucky",
-    category: "Streamer",
+    roles: ["Streamer", "Headmod"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=Lucky&backgroundColor=7c3aed",
     profileUrl: "https://twitch.tv/lucky",
     platform: "twitch",
@@ -12,7 +12,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "neonfox",
     name: "NeonFox",
-    category: "Streamer",
+    roles: ["Streamer"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=NeonFox&backgroundColor=c026d3",
     profileUrl: "https://twitch.tv/neonfox",
     platform: "twitch",
@@ -20,7 +20,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "pixelpulse",
     name: "PixelPulse",
-    category: "Mod",
+    roles: ["Mod"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=PixelPulse&backgroundColor=059669",
     profileUrl: "https://twitch.tv/pixelpulse",
     platform: "twitch",
@@ -28,7 +28,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "orbitmod",
     name: "OrbitMod",
-    category: "Mod",
+    roles: ["Mod", "Ex-Mod"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=OrbitMod&backgroundColor=10b981",
     profileUrl: "https://x.com/orbitmod",
     platform: "x",
@@ -36,7 +36,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "bubbleskip",
     name: "BubbleSkip",
-    category: "Bubble",
+    roles: ["User"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=BubbleSkip&backgroundColor=0284c7",
     profileUrl: "https://twitter.com/bubbleskip",
     platform: "twitter",
@@ -44,7 +44,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "glownote",
     name: "GlowNote",
-    category: "Bubble",
+    roles: ["User"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=GlowNote&backgroundColor=0ea5e9",
     profileUrl: "https://x.com/glownote",
     platform: "x",
@@ -52,7 +52,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "raidwave",
     name: "RaidWave",
-    category: "Streamer",
+    roles: ["Streamer"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=RaidWave&backgroundColor=8b5cf6",
     profileUrl: "https://twitch.tv/raidwave",
     platform: "twitch",
@@ -60,7 +60,7 @@ export const MOCK_PEOPLE: Person[] = [
   {
     id: "chathaven",
     name: "ChatHaven",
-    category: "Bubble",
+    roles: ["User", "gebannt"],
     avatarUrl: "https://api.dicebear.com/9.x/thumbs/svg?seed=ChatHaven&backgroundColor=38bdf8",
     profileUrl: "https://twitch.tv/chathaven",
     platform: "twitch",

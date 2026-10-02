@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import type {
-  Category,
   Connection,
   ConnectionKind,
   Person,
   PersonDraft,
+  Role,
 } from "../types";
 import {
-  ALL_CATEGORIES,
   ALL_CONNECTION_KINDS,
-  CATEGORY_COLORS,
-  CATEGORY_LABELS,
+  ALL_ROLES,
   CONNECTION_KIND_COLORS,
   CONNECTION_KIND_LABELS,
+  formatRoles,
   PERSON_DRAG_MIME,
+  ROLE_COLORS,
+  ROLE_LABELS,
 } from "../types";
 import {
-  defaultCategoryForPlatform,
+  defaultRolesForPlatform,
   resolveProfileFromUrl,
 } from "../utils/resolveProfile";
 
@@ -28,7 +29,7 @@ interface SidebarProps {
   canEdit: boolean;
   previewClearToken?: number;
   onAddPerson: (person: PersonDraft) => void;
-  onUpdateCategory: (personId: string, category: Category) => void;
+  onUpdateRoles: (personId: string, roles: Role[]) => void;
   onDeletePerson: (personId: string) => void;
   onDeleteConnection: (connectionId: string) => void;
   onStartConnect: (personId: string | null) => void;
@@ -41,7 +42,7 @@ interface SidebarProps {
   statusMessage: string | null;
 }
 
-type PreviewPerson = Omit<Person, "id" | "category"> & {
+type PreviewPerson = Omit<Person, "id" | "roles"> & {
   demo?: boolean;
 };
 
@@ -52,6 +53,61 @@ function platformLabel(platform: Person["platform"]): string {
   return "Profil";
 }
 
+function toggleRole(roles: Role[], role: Role): Role[] {
+  if (roles.includes(role)) {
+    if (roles.length === 1) return roles;
+    return roles.filter((r) => r !== role);
+  }
+  return [...roles, role];
+}
+
+function RoleMultiSelect({
+  value,
+  onChange,
+  disabled,
+  legend = "Funktionen (Mehrfachauswahl)",
+}: {
+  value: Role[];
+  onChange: (roles: Role[]) => void;
+  disabled?: boolean;
+  legend?: string;
+}) {
+  return (
+    <fieldset className="role-fieldset" disabled={disabled}>
+      <legend>{legend}</legend>
+      <div className="role-chips" role="group" aria-label={legend}>
+        {ALL_ROLES.map((r) => {
+          const selected = value.includes(r);
+          return (
+            <button
+              key={r}
+              type="button"
+              aria-pressed={selected}
+              className={`role-chip${selected ? " on" : ""}`}
+              style={
+                selected
+                  ? {
+                      borderColor: ROLE_COLORS[r],
+                      boxShadow: `0 0 0 2px ${ROLE_COLORS[r]}33`,
+                    }
+                  : undefined
+              }
+              onClick={() => onChange(toggleRole(value, r))}
+              disabled={disabled}
+            >
+              <span
+                className="swatch"
+                style={{ background: ROLE_COLORS[r] }}
+              />
+              {ROLE_LABELS[r]}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 export function Sidebar({
   people,
   connections,
@@ -60,7 +116,7 @@ export function Sidebar({
   canEdit,
   previewClearToken = 0,
   onAddPerson,
-  onUpdateCategory,
+  onUpdateRoles,
   onDeletePerson,
   onDeleteConnection,
   onStartConnect,
@@ -69,7 +125,7 @@ export function Sidebar({
   statusMessage,
 }: SidebarProps) {
   const [url, setUrl] = useState("");
-  const [category, setCategory] = useState<Category>("Streamer");
+  const [roles, setRoles] = useState<Role[]>(["Streamer"]);
   const [error, setError] = useState<string | null>(null);
   const [connectTarget, setConnectTarget] = useState("");
   const [resolving, setResolving] = useState(false);
@@ -139,20 +195,20 @@ export function Sidebar({
         return;
       }
       setPreview({ ...result.person, demo: result.demo });
-      setCategory(defaultCategoryForPlatform(result.person.platform));
+      setRoles(defaultRolesForPlatform(result.person.platform));
     } finally {
       setResolving(false);
     }
   }
 
   function draftFromPreview(): PersonDraft | null {
-    if (!preview) return null;
+    if (!preview || !roles.length) return null;
     return {
       name: preview.name,
       avatarUrl: preview.avatarUrl,
       profileUrl: preview.profileUrl,
       platform: preview.platform,
-      category,
+      roles: [...roles],
     };
   }
 
@@ -181,7 +237,7 @@ export function Sidebar({
     e.dataTransfer.setData(PERSON_DRAG_MIME, JSON.stringify(draft));
     e.dataTransfer.setData(
       "text/plain",
-      `${draft.name} (${CATEGORY_LABELS[draft.category]})`,
+      `${draft.name} (${formatRoles(draft.roles)})`,
     );
     e.dataTransfer.effectAllowed = "copy";
     if (previewCardRef.current) {
@@ -240,42 +296,15 @@ export function Sidebar({
         ) : (
           <div className="stack">
             <p className="hint" id="role-hint">
-              Zuerst Funktion wählen, dann die Karte auf den Graph ziehen.
+              Funktionen wählen (mehrere möglich), dann die Karte auf den Graph
+              ziehen.
             </p>
 
-            <fieldset className="role-fieldset" aria-describedby="role-hint">
-              <legend>Funktion</legend>
-              <div className="role-chips" role="radiogroup" aria-label="Funktion">
-                {ALL_CATEGORIES.map((c) => {
-                  const selected = category === c;
-                  return (
-                    <button
-                      key={c}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      className={`role-chip${selected ? " on" : ""}`}
-                      style={
-                        selected
-                          ? {
-                              borderColor: CATEGORY_COLORS[c],
-                              boxShadow: `0 0 0 2px ${CATEGORY_COLORS[c]}33`,
-                            }
-                          : undefined
-                      }
-                      onClick={() => setCategory(c)}
-                      disabled={!canEdit}
-                    >
-                      <span
-                        className="swatch"
-                        style={{ background: CATEGORY_COLORS[c] }}
-                      />
-                      {CATEGORY_LABELS[c]}
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
+            <RoleMultiSelect
+              value={roles}
+              onChange={setRoles}
+              disabled={!canEdit}
+            />
 
             <div
               ref={previewCardRef}
@@ -302,8 +331,16 @@ export function Sidebar({
                 <span className="profile-preview-platform">
                   {platformLabel(preview.platform)}
                   {" · "}
-                  <span style={{ color: CATEGORY_COLORS[category] }}>
-                    {CATEGORY_LABELS[category]}
+                  <span className="role-inline-pills">
+                    {roles.map((r) => (
+                      <span
+                        key={r}
+                        className="cat-pill"
+                        style={{ background: ROLE_COLORS[r] }}
+                      >
+                        {ROLE_LABELS[r]}
+                      </span>
+                    ))}
                   </span>
                   {preview.demo ? " · Demo-Avatar" : ""}
                 </span>
@@ -325,7 +362,7 @@ export function Sidebar({
                 type="button"
                 className="btn primary"
                 onClick={handleConfirmAdd}
-                disabled={!canEdit}
+                disabled={!canEdit || !roles.length}
               >
                 Zum Netzwerk hinzufügen
               </button>
@@ -342,8 +379,8 @@ export function Sidebar({
         )}
 
         <p className="hint">
-          Link → Profil laden → Funktion wählen → auf den Graph ziehen (oder
-          Button). Danach Verbindungen ziehen.
+          Link → Profil laden → Funktionen wählen → auf den Graph ziehen (oder
+          Button). Verbindungen sind gerichtet (Pfeil A → B).
         </p>
       </section>
 
@@ -355,8 +392,8 @@ export function Sidebar({
           </p>
         ) : (
           <p className="hint">
-            Zuerst den Verbindungstyp wählen (Mod / Fren / Streamerkollege),
-            dann Von/Nach oder zwei Knoten im Graph.
+            Verbindungstyp wählen (Mod / Fren / Streamerkollege), dann Von → Nach
+            oder zwei Knoten im Graph. Richtung: Von → Nach (Pfeil).
           </p>
         )}
         <div className="stack">
@@ -408,7 +445,7 @@ export function Sidebar({
               <option value="">Person wählen…</option>
               {peopleSorted.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} ({CATEGORY_LABELS[p.category]})
+                  {p.name} ({formatRoles(p.roles)})
                 </option>
               ))}
             </select>
@@ -428,7 +465,7 @@ export function Sidebar({
                     .filter((p) => p.id !== connectFromId)
                     .map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} ({CATEGORY_LABELS[p.category]})
+                        {p.name} ({formatRoles(p.roles)})
                       </option>
                     ))}
                 </select>
@@ -439,7 +476,7 @@ export function Sidebar({
                   className="btn primary"
                   disabled={!canEdit || !connectTarget}
                 >
-                  Als {CONNECTION_KIND_LABELS[connectKind]} verbinden
+                  Als {CONNECTION_KIND_LABELS[connectKind]} verbinden (→)
                 </button>
                 {canEdit && connectFrom ? (
                   <button
@@ -472,11 +509,24 @@ export function Sidebar({
             />
             <div className="profile-preview-meta">
               <strong className="profile-preview-name">{connectFrom.name}</strong>
-              <span className="profile-preview-platform">
-                {CATEGORY_LABELS[connectFrom.category]}
+              <span className="role-inline-pills">
+                {connectFrom.roles.map((r) => (
+                  <span
+                    key={r}
+                    className="cat-pill"
+                    style={{ background: ROLE_COLORS[r] }}
+                  >
+                    {ROLE_LABELS[r]}
+                  </span>
+                ))}
               </span>
             </div>
           </div>
+          <RoleMultiSelect
+            value={connectFrom.roles}
+            onChange={(next) => onUpdateRoles(connectFrom.id, next)}
+            legend="Rollen bearbeiten"
+          />
           <div className="btn-row">
             <button
               type="button"
@@ -515,7 +565,7 @@ export function Sidebar({
                     <span className="connection-names">
                       <strong>{a?.name ?? c.source}</strong>
                       <span className="connection-arrow" aria-hidden="true">
-                        ↔
+                        →
                       </span>
                       <strong>{b?.name ?? c.target}</strong>
                     </span>
@@ -550,7 +600,7 @@ export function Sidebar({
           {peopleSorted.map((p) => (
             <li key={p.id}>
               <div
-                className={`person-row${connectFromId === p.id ? " active" : ""}`}
+                className={`person-row person-row-multi${connectFromId === p.id ? " active" : ""}`}
               >
                 <button
                   type="button"
@@ -568,35 +618,26 @@ export function Sidebar({
                   <img src={p.avatarUrl} alt="" width={28} height={28} />
                   <span className="person-meta">
                     <strong>{p.name}</strong>
-                    {!canEdit ? (
-                      <span
-                        className="cat-pill"
-                        style={{ background: CATEGORY_COLORS[p.category] }}
-                      >
-                        {CATEGORY_LABELS[p.category]}
-                      </span>
-                    ) : null}
+                    <span className="role-inline-pills">
+                      {p.roles.map((r) => (
+                        <span
+                          key={r}
+                          className="cat-pill"
+                          style={{ background: ROLE_COLORS[r] }}
+                        >
+                          {ROLE_LABELS[r]}
+                        </span>
+                      ))}
+                    </span>
                   </span>
                 </button>
                 {canEdit ? (
-                  <>
-                    <select
-                      className="person-category"
-                      value={p.category}
-                      aria-label={`Funktion für ${p.name}`}
-                      onChange={(e) =>
-                        onUpdateCategory(p.id, e.target.value as Category)
-                      }
-                      style={{
-                        borderColor: CATEGORY_COLORS[p.category],
-                      }}
-                    >
-                      {ALL_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {CATEGORY_LABELS[c]}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="person-role-edit">
+                    <RoleMultiSelect
+                      value={p.roles}
+                      onChange={(next) => onUpdateRoles(p.id, next)}
+                      legend={`Rollen · ${p.name}`}
+                    />
                     <button
                       type="button"
                       className="btn icon-danger"
@@ -606,7 +647,7 @@ export function Sidebar({
                     >
                       Löschen
                     </button>
-                  </>
+                  </div>
                 ) : null}
               </div>
             </li>

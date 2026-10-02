@@ -1,8 +1,8 @@
-import type { Category, Person } from "../types";
+import type { Person, Role } from "../types";
 
 export interface ResolveResult {
   ok: true;
-  person: Omit<Person, "id" | "category">;
+  person: Omit<Person, "id" | "roles">;
   /** True when a soft stub was used (legacy; public Twitch resolve should not set this). */
   demo?: boolean;
 }
@@ -323,9 +323,16 @@ export async function fetchTwitchReady(): Promise<boolean> {
   }
 }
 
+export function defaultRolesForPlatform(
+  platform: Person["platform"],
+): Role[] {
+  if (platform === "twitch") return ["Streamer"];
+  return ["User"];
+}
+
+/** @deprecated Use defaultRolesForPlatform */
 export function defaultCategoryForPlatform(
   platform: Person["platform"],
-): Category {
-  if (platform === "twitch") return "Streamer";
-  return "Bubble";
+): Role {
+  return defaultRolesForPlatform(platform)[0]!;
 }

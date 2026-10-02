@@ -9,7 +9,8 @@ draw connections, and delete people. No Discord login required.
 ## Features
 
 - Force-directed graph UI (sigma.js + graphology), Gephi-style
-- Categories: **Streamer**, **Mod**, **Bubble** (color legend + filters)
+- Roles (multi-select): **Streamer**, **Mod**, **User**, **Ex-Mod**, **Headmod**, **gebannt** — badges on the board
+- Directed connections with arrows (A → B); parallel strands stay visible
 - Add a person by pasting a Twitch or X/Twitter profile URL
 - Real profile ingest:
   - **Twitch** → public resolve by default (ivr.fi / Twitch GQL / unavatar) via `/api/twitch-user` — **no Client Secret required**
@@ -66,7 +67,7 @@ Redeploy after changing bindings so Pages Functions pick them up.
 
 ## Discord #liste refresh (Netzy)
 
-After each successful graph write (add/delete person, change category, add/delete
+After each successful graph write (add/delete person, change roles, add/delete
 connection), Pages Functions optionally `POST {}` to `WALL_OF_SHAME_NOTIFY_URL`.
 
 1. Point that URL at the Netzy routine that screenshots the public board and
