@@ -152,9 +152,13 @@ type VisualStrand = DirectedStrand & {
 };
 
 /**
- * Collapse reciprocal strands of the same label (Fren↔Fren) into one
- * double-headed edge. Different labels stay separate colored strands.
- * Storage remains two directed connections; this is visual only.
+ * One visual strand per label between a pair of people.
+ * Fren as a kind and Fren as a role are the same yellow label, so they must
+ * not become two parallel curves. If that label exists in both directions,
+ * draw a single curve with arrowheads on both ends. A label that exists in
+ * only one direction stays a single arrow. Different labels (Fren vs
+ * Streamerkollege) stay separate colored strands.
+ * Storage remains directed connections; this is visual only.
  */
 function visualStrands(connections: Connection[]): VisualStrand[] {
   const buckets = new Map<string, DirectedStrand[]>();
@@ -164,7 +168,11 @@ function visualStrands(connections: Connection[]): VisualStrand[] {
     const tags = connectionTagSegments(kinds, roles);
     const strands: ConnectionTagSegment[] =
       tags.length > 0 ? tags : [{ text: "—", color: "#94a3b8" }];
+    const seenOnConn = new Set<string>();
     for (const tag of strands) {
+      // Kind "Fren" and role "Fren" on the same directed edge are one strand.
+      if (seenOnConn.has(tag.text)) continue;
+      seenOnConn.add(tag.text);
       const lo = conn.source < conn.target ? conn.source : conn.target;
       const hi = conn.source < conn.target ? conn.target : conn.source;
       const bucketKey = `${lo}\0${hi}\0${tag.text}`;
@@ -183,53 +191,28 @@ function visualStrands(connections: Connection[]): VisualStrand[] {
   const visual: VisualStrand[] = [];
   for (const [bucketKey, items] of buckets) {
     const [lo, hi] = bucketKey.split("\0");
-    const forward = items.filter((s) => s.source === lo && s.target === hi);
-    const backward = items.filter((s) => s.source === hi && s.target === lo);
-    const same = items.filter(
-      (s) => !(s.source === lo && s.target === hi) && !(s.source === hi && s.target === lo),
-    );
-    const pairs = Math.min(forward.length, backward.length);
-    const slug = `${lo}__${hi}__${items[0]?.text ?? ""}`;
-    for (let i = 0; i < pairs; i += 1) {
-      const tag = forward[i] ?? backward[i]!;
+    const forward = items.find((s) => s.source === lo && s.target === hi);
+    const backward = items.find((s) => s.source === hi && s.target === lo);
+    const tag = forward ?? backward ?? items[0];
+    if (!tag || !lo || !hi) continue;
+    if (forward && backward) {
       visual.push({
-        key: `both__${slug}__${i}`,
-        source: lo!,
-        target: hi!,
+        key: `both__${lo}__${hi}__${tag.text}`,
+        source: lo,
+        target: hi,
         text: tag.text,
         color: tag.color,
         bidirectional: true,
       });
+      continue;
     }
-    forward.slice(pairs).forEach((tag, i) => {
-      visual.push({
-        key: `dir__${tag.source}__${tag.target}__${tag.text}__f${i}`,
-        source: tag.source,
-        target: tag.target,
-        text: tag.text,
-        color: tag.color,
-        bidirectional: false,
-      });
-    });
-    backward.slice(pairs).forEach((tag, i) => {
-      visual.push({
-        key: `dir__${tag.source}__${tag.target}__${tag.text}__b${i}`,
-        source: tag.source,
-        target: tag.target,
-        text: tag.text,
-        color: tag.color,
-        bidirectional: false,
-      });
-    });
-    same.forEach((tag, i) => {
-      visual.push({
-        key: `dir__${tag.source}__${tag.target}__${tag.text}__s${i}`,
-        source: tag.source,
-        target: tag.target,
-        text: tag.text,
-        color: tag.color,
-        bidirectional: false,
-      });
+    visual.push({
+      key: `dir__${tag.source}__${tag.target}__${tag.text}`,
+      source: tag.source,
+      target: tag.target,
+      text: tag.text,
+      color: tag.color,
+      bidirectional: false,
     });
   }
   return visual;
