@@ -30,7 +30,7 @@ export interface Connection {
   id: string;
   source: string;
   target: string;
-  /** Relationship types — multi-select (Mod / Fren / Streamerkollege). */
+  /** Relationship types — multi-select (Mod / Fren). Streamerkollege is legacy-only. */
   kinds: ConnectionKind[];
   /** Optional role tags on the edge — multi-select. Not limited to person roles. */
   roles: ConnectionRole[];
@@ -92,6 +92,7 @@ export const CONNECTION_ROLE_COLORS: Record<ConnectionRole, string> = {
 
 export const CONNECTION_ROLE_LABELS: Record<ConnectionRole, string> = {
   ...ROLE_LABELS,
+  Streamer: "Streamerfren",
   "Ex-Mod": "Ex-Mod",
   gebannt: "gebannt",
 };
@@ -155,11 +156,8 @@ export function normalizeConnectionRoles(raw: unknown): ConnectionRole[] {
   return roles;
 }
 
-export const ALL_CONNECTION_KINDS: ConnectionKind[] = [
-  "Mod",
-  "Fren",
-  "Streamerkollege",
-];
+/** Offered in "Verbindung ziehen". Legacy Streamerkollege stays on stored edges only. */
+export const ALL_CONNECTION_KINDS: ConnectionKind[] = ["Mod", "Fren"];
 
 export const DEFAULT_CONNECTION_KIND: ConnectionKind = "Fren";
 

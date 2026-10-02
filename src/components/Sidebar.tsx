@@ -342,16 +342,56 @@ export function Sidebar({
     setDragging(false);
   }
 
+  const existingDirected = useMemo(() => {
+    if (!connectFromId || !connectTarget) return null;
+    return (
+      connections.find(
+        (c) => c.source === connectFromId && c.target === connectTarget,
+      ) ?? null
+    );
+  }, [connections, connectFromId, connectTarget]);
+
+  // When Von and Nach pick an existing directed edge, show its tags as selected.
+  // Re-sync if that edge changes (chip edit), but not on every local checkbox toggle.
+  const directedSyncKey = existingDirected
+    ? `${existingDirected.id}|${existingDirected.kinds.join("\0")}|${existingDirected.roles.join("\0")}`
+    : "";
+  const syncedDirected = useRef("");
+  useEffect(() => {
+    if (!connectFromId || !connectTarget) {
+      syncedDirected.current = "";
+      return;
+    }
+    const pair = `${connectFromId}->${connectTarget}`;
+    const token = `${pair}#${directedSyncKey}`;
+    if (syncedDirected.current === token) return;
+    syncedDirected.current = token;
+    if (!existingDirected) return;
+    onConnectKindsChange(
+      existingDirected.kinds.filter((k) => ALL_CONNECTION_KINDS.includes(k)),
+    );
+    onConnectRolesChange([...existingDirected.roles]);
+  }, [
+    connectFromId,
+    connectTarget,
+    directedSyncKey,
+    existingDirected,
+    onConnectKindsChange,
+    onConnectRolesChange,
+  ]);
+
   function handleConnect(e: FormEvent) {
     e.preventDefault();
     if (!canEdit || !connectFromId || !connectTarget) return;
-    if (!connectKinds.length && !connectRoles.length) return;
-    onCreateConnection(
-      connectFromId,
-      connectTarget,
-      connectKinds,
-      connectRoles,
+    const offeredKinds = connectKinds.filter((k) =>
+      ALL_CONNECTION_KINDS.includes(k),
     );
+    if (!offeredKinds.length && !connectRoles.length) return;
+    if (existingDirected) {
+      onUpdateConnectionTags(existingDirected.id, offeredKinds, connectRoles);
+      return;
+    }
+    onCreateConnection(connectFromId, connectTarget, offeredKinds, connectRoles);
     setConnectTarget("");
   }
 
@@ -598,8 +638,9 @@ export function Sidebar({
           </p>
         ) : (
           <p className="hint">
-            Beziehungstypen und/oder Rollen-Tags wählen (Mehrfachauswahl), dann
-            Von → Nach oder zwei Knoten im Graph. Richtung: Von → Nach (Pfeil).
+            {existingDirected
+              ? "Bestehende Verbindung ist vorausgewählt. Weitere Typen oder Tags an- oder abwählen, dann Update — das ersetzt diese Richtung, ohne eine zweite Kante."
+              : "Beziehungstypen und/oder Rollen-Tags wählen (Mehrfachauswahl), dann Von → Nach oder zwei Knoten im Graph. Richtung: Von → Nach (Pfeil)."}
           </p>
         )}
         <div className="stack">
@@ -617,7 +658,7 @@ export function Sidebar({
             colors={CONNECTION_ROLE_COLORS}
             labels={CONNECTION_ROLE_LABELS}
             legend="Rollen-Tags an der Kante (Mehrfachauswahl)"
-            hint="Optional — z.B. Fren, Ex-Mod oder gebannt neben Beziehungstypen"
+            hint="Optional — z.B. Streamerfren, Ex-Mod oder gebannt neben Beziehungstypen"
           />
 
           <label>
@@ -661,7 +702,9 @@ export function Sidebar({
                   className="btn primary"
                   disabled={!canSubmitConnect}
                 >
-                  Als {connectTagSummary} verbinden (→)
+                  {existingDirected
+                    ? "Update"
+                    : `Als ${connectTagSummary} verbinden (→)`}
                 </button>
                 {canEdit && connectFrom ? (
                   <button
