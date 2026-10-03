@@ -216,20 +216,13 @@ function visualStrands(connections: Connection[]): VisualStrand[] {
   return visual;
 }
 
-function getCurvature(index: number, maxIndex: number): number {
-  if (maxIndex <= 0) return DEFAULT_EDGE_CURVATURE;
-  if (index < 0) return -getCurvature(-index, maxIndex);
-  // Match @sigma/edge-curve parallel-edges example: spread strands clearly.
-  const amplitude = 3.5;
-  const maxCurvature =
-    amplitude *
-    (1 - Math.exp(-maxIndex / amplitude)) *
-    DEFAULT_EDGE_CURVATURE;
-  return (maxCurvature * index) / Math.max(maxIndex, 1e-6);
-}
-
 /**
  * One curvature per strand of an unordered pair, in stable label order.
+ * Values are in canonical pair space (lo → hi). Callers must negate when the
+ * drawn edge runs hi → lo — sigma measures curvature from source→target, so
+ * opposite directions with the same signed value sit on the same geometric
+ * curve (Fren both-ways + one-way Mod looked stacked).
+ *
  * Index 0 must not go to the curve shader: GLSL sign(0) collapses the quad
  * and the stroke disappears while the label still paints (the "3 links, 2
  * lines" bug). That center strand is drawn straight instead.
@@ -240,7 +233,14 @@ function curvaturesForStrandCount(count: number): number[] {
   const values: number[] = [];
   for (let i = 0; i < count; i += 1) {
     const index = i - mid;
-    values.push(index === 0 ? 0 : getCurvature(index, mid));
+    if (index === 0) {
+      values.push(0);
+      continue;
+    }
+    // Even counts have no center: ±0.5 must still bend clearly (~DEFAULT).
+    const magnitude =
+      DEFAULT_EDGE_CURVATURE * (0.5 + Math.abs(index));
+    values.push(Math.sign(index) * magnitude);
   }
   return values;
 }
@@ -721,7 +721,10 @@ export function NetworkGraph({
       if (list) list.push(strand.key);
       else byPair.set(pair, [strand.key]);
     }
-    for (const keys of byPair.values()) {
+    for (const [pairKey, keys] of byPair) {
+      const sep = pairKey.indexOf("\0");
+      const pairLo = pairKey.slice(0, sep);
+      const pairHi = pairKey.slice(sep + 1);
       keys.sort((a, b) => {
         const left = strandByKey.get(a);
         const right = strandByKey.get(b);
@@ -732,7 +735,12 @@ export function NetworkGraph({
       keys.forEach((key, i) => {
         const strand = strandByKey.get(key);
         if (!strand) return;
-        const curvature = curves[i] ?? 0;
+        let curvature = curves[i] ?? 0;
+        // Sigma bends relative to source→target. A reverse edge needs the
+        // opposite sign so distinct labels keep the offsets assigned above.
+        const runsCanonical =
+          strand.source === pairLo && strand.target === pairHi;
+        if (!runsCanonical) curvature = -curvature;
         // curvature 0 is the straight center strand (or a lone edge).
         const straight = curvature === 0;
         graph.mergeEdgeAttributes(key, {
