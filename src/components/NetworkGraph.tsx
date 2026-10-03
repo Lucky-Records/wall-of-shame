@@ -43,6 +43,7 @@ interface NetworkGraphProps {
   connectFromId: string | null;
   positionHints: Record<string, GraphPosition>;
   onNodeClick: (personId: string) => void;
+  onNodeDoubleClick: (personId: string) => void;
   onPersonDrop: (draft: PersonDraft, position: GraphPosition) => void;
   onNodeMove: (personId: string, position: GraphPosition) => void;
 }
@@ -465,6 +466,7 @@ export function NetworkGraph({
   connectFromId,
   positionHints,
   onNodeClick,
+  onNodeDoubleClick,
   onPersonDrop,
   onNodeMove,
 }: NetworkGraphProps) {
@@ -473,13 +475,16 @@ export function NetworkGraph({
   const sigmaRef = useRef<Sigma | null>(null);
   const graphRef = useRef<MultiGraph | null>(null);
   const onNodeClickRef = useRef(onNodeClick);
+  const onNodeDoubleClickRef = useRef(onNodeDoubleClick);
   const onPersonDropRef = useRef(onPersonDrop);
   const onNodeMoveRef = useRef(onNodeMove);
   const positionHintsRef = useRef(positionHints);
   const draggedNodeRef = useRef<string | null>(null);
   const dragMovedRef = useRef(false);
   const skipClickRef = useRef(false);
+  const lastDragAtRef = useRef(0);
   onNodeClickRef.current = onNodeClick;
+  onNodeDoubleClickRef.current = onNodeDoubleClick;
   onPersonDropRef.current = onPersonDrop;
   onNodeMoveRef.current = onNodeMove;
   positionHintsRef.current = positionHints;
@@ -566,6 +571,7 @@ export function NetworkGraph({
 
       if (moved && Number.isFinite(x) && Number.isFinite(y)) {
         skipClickRef.current = true;
+        lastDragAtRef.current = Date.now();
         onNodeMoveRef.current(nodeId, { x, y });
       }
     }
@@ -605,6 +611,14 @@ export function NetworkGraph({
         return;
       }
       onNodeClickRef.current(node);
+    });
+
+    // Double-click the avatar: list connections. A real drag must not open it.
+    // preventSigmaDefault keeps the camera zoom from eating the gesture.
+    sigma.on("doubleClickNode", ({ node, event }) => {
+      event.preventSigmaDefault();
+      if (Date.now() - lastDragAtRef.current < 500) return;
+      onNodeDoubleClickRef.current(node);
     });
 
     return () => {
