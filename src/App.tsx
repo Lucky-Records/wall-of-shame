@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { CategoryFilters } from "./components/CategoryFilters";
-import { ConnectionsModal } from "./components/ConnectionsModal";
 import { NetworkGraph } from "./components/NetworkGraph";
 import { Sidebar } from "./components/Sidebar";
 import {
@@ -57,9 +56,6 @@ export default function App() {
     Record<string, GraphPosition>
   >({});
   const [previewClearToken, setPreviewClearToken] = useState(0);
-  const [connectionsPersonId, setConnectionsPersonId] = useState<string | null>(
-    null,
-  );
 
   const flash = useCallback((message: string) => {
     setStatusMessage(message);
@@ -372,10 +368,6 @@ export default function App() {
     });
   }, []);
 
-  const connectionsPerson = connectionsPersonId
-    ? people.find((p) => p.id === connectionsPersonId)
-    : undefined;
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -434,7 +426,6 @@ export default function App() {
             connectFromId={connectFromId}
             positionHints={positionHints}
             onNodeClick={handleNodeClick}
-            onNodeDoubleClick={setConnectionsPersonId}
             onPersonDrop={handlePersonDrop}
             onNodeMove={(id, pos) => {
               void handleNodeMove(id, pos);
@@ -442,18 +433,11 @@ export default function App() {
           />
         )}
         <p className="stage-hint">
-          Profil-Icons ziehen zum Verschieben · Doppelklick aufs Profilbild
-          zeigt Verbindungen · Hintergrund schieben · Scrollen zoomen
+          Profil-Icons ziehen zum Verschieben · Doppelklick blendet fremde
+          Linien aus · nochmal, leerer Hintergrund oder Escape zeigt alle ·
+          Scrollen zoomen
         </p>
       </main>
-      {connectionsPerson ? (
-        <ConnectionsModal
-          person={connectionsPerson}
-          people={people}
-          connections={connections}
-          onClose={() => setConnectionsPersonId(null)}
-        />
-      ) : null}
     </div>
   );
 }

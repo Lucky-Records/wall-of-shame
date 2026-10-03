@@ -43,7 +43,6 @@ interface NetworkGraphProps {
   connectFromId: string | null;
   positionHints: Record<string, GraphPosition>;
   onNodeClick: (personId: string) => void;
-  onNodeDoubleClick: (personId: string) => void;
   onPersonDrop: (draft: PersonDraft, position: GraphPosition) => void;
   onNodeMove: (personId: string, position: GraphPosition) => void;
 }
@@ -466,7 +465,6 @@ export function NetworkGraph({
   connectFromId,
   positionHints,
   onNodeClick,
-  onNodeDoubleClick,
   onPersonDrop,
   onNodeMove,
 }: NetworkGraphProps) {
@@ -475,7 +473,6 @@ export function NetworkGraph({
   const sigmaRef = useRef<Sigma | null>(null);
   const graphRef = useRef<MultiGraph | null>(null);
   const onNodeClickRef = useRef(onNodeClick);
-  const onNodeDoubleClickRef = useRef(onNodeDoubleClick);
   const onPersonDropRef = useRef(onPersonDrop);
   const onNodeMoveRef = useRef(onNodeMove);
   const positionHintsRef = useRef(positionHints);
@@ -483,8 +480,10 @@ export function NetworkGraph({
   const dragMovedRef = useRef(false);
   const skipClickRef = useRef(false);
   const lastDragAtRef = useRef(0);
+  const [focusPersonId, setFocusPersonId] = useState<string | null>(null);
+  const focusPersonIdRef = useRef<string | null>(null);
+  focusPersonIdRef.current = focusPersonId;
   onNodeClickRef.current = onNodeClick;
-  onNodeDoubleClickRef.current = onNodeDoubleClick;
   onPersonDropRef.current = onPersonDrop;
   onNodeMoveRef.current = onNodeMove;
   positionHintsRef.current = positionHints;
@@ -504,10 +503,18 @@ export function NetworkGraph({
 
   const visibleConnections = useMemo(
     () =>
-      connections.filter(
-        (c) => visibleIds.has(c.source) && visibleIds.has(c.target),
-      ),
-    [connections, visibleIds],
+      connections.filter((c) => {
+        if (!visibleIds.has(c.source) || !visibleIds.has(c.target)) return false;
+        if (
+          focusPersonId &&
+          c.source !== focusPersonId &&
+          c.target !== focusPersonId
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [connections, visibleIds, focusPersonId],
   );
 
   // Create sigma once + node drag handlers
@@ -613,20 +620,52 @@ export function NetworkGraph({
       onNodeClickRef.current(node);
     });
 
-    // Double-click the avatar: list connections. A real drag must not open it.
-    // preventSigmaDefault keeps the camera zoom from eating the gesture.
+    // Double-click the avatar: hide every edge that does not touch this person.
+    // A second double-click on the same avatar clears the filter. A real drag
+    // must not change it. preventSigmaDefault keeps the camera zoom off.
     sigma.on("doubleClickNode", ({ node, event }) => {
       event.preventSigmaDefault();
       if (Date.now() - lastDragAtRef.current < 500) return;
-      onNodeDoubleClickRef.current(node);
+      setFocusPersonId((current) => (current === node ? null : node));
     });
 
+    sigma.on("doubleClickStage", ({ event }) => {
+      if (!focusPersonIdRef.current) return;
+      event.preventSigmaDefault();
+      setFocusPersonId(null);
+    });
+
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape" || !focusPersonIdRef.current) return;
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+      setFocusPersonId(null);
+    }
+    window.addEventListener("keydown", onKey);
+
     return () => {
+      window.removeEventListener("keydown", onKey);
       sigma.kill();
       sigmaRef.current = null;
       graphRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (focusPersonId && !visibleIds.has(focusPersonId)) {
+      setFocusPersonId(null);
+    }
+  }, [focusPersonId, visibleIds]);
 
   // Sync graph data + layout
   useEffect(() => {
