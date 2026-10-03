@@ -93,7 +93,7 @@ export const CONNECTION_ROLE_COLORS: Record<ConnectionRole, string> = {
 export const CONNECTION_ROLE_LABELS: Record<ConnectionRole, string> = {
   ...ROLE_LABELS,
   Streamer: "Streamerfren",
-  "Ex-Mod": "Ex-Mod",
+  "Ex-Mod": "Ex-Mod bei",
   gebannt: "gebannt bei",
 };
 

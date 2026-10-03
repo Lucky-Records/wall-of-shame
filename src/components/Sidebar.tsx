@@ -668,7 +668,7 @@ export function Sidebar({
             colors={CONNECTION_ROLE_COLORS}
             labels={CONNECTION_ROLE_LABELS}
             legend="Rollen-Tags an der Kante (Mehrfachauswahl)"
-            hint="z.B. Streamerfren, Mod, Twitter, Fren, Ex-Mod oder gebannt bei"
+            hint="z.B. Streamerfren, Mod, Twitter, Fren, Ex-Mod bei oder gebannt bei"
           />
 
           <label>
