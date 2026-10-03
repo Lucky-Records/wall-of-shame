@@ -94,7 +94,7 @@ export const CONNECTION_ROLE_LABELS: Record<ConnectionRole, string> = {
   ...ROLE_LABELS,
   Streamer: "Streamerfren",
   "Ex-Mod": "Ex-Mod",
-  gebannt: "bebannt bei",
+  gebannt: "gebannt bei",
 };
 
 /** @deprecated Use ROLE_LABELS */
