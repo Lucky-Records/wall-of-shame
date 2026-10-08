@@ -7,13 +7,17 @@ interface CollapsiblePanelProps {
   id: string;
   title: ReactNode;
   className?: string;
-  /** Extra controls on the header row (hidden while collapsed). */
+  /** Extra controls on the header row. */
   headerExtra?: ReactNode;
   bodyClassName?: string;
   children: ReactNode;
 }
 
-/** A framed box whose header toggles the body. Collapsed = header only. */
+/**
+ * A framed box with a ▾ header toggle. Collapsed, the box is hidden here and
+ * shows up as a letter square in the dock (see CollapsedDock). It stays
+ * mounted so form state survives.
+ */
 export function CollapsiblePanel({
   id,
   title,
@@ -26,10 +30,9 @@ export function CollapsiblePanel({
   const bodyId = useId();
   return (
     <section
-      className={`panel collapsible-panel${collapsed ? " is-collapsed" : ""}${
-        className ? ` ${className}` : ""
-      }`}
+      className={`panel collapsible-panel${className ? ` ${className}` : ""}`}
       data-panel={id}
+      hidden={collapsed}
     >
       <div className="panel-head">
         <button
@@ -37,22 +40,21 @@ export function CollapsiblePanel({
           className="panel-toggle"
           aria-expanded={!collapsed}
           aria-controls={bodyId}
-          title={collapsed ? "Aufklappen" : "Einklappen"}
+          title="Einklappen"
           onClick={toggle}
         >
           <span className="panel-chevron" aria-hidden="true">
-            {collapsed ? "▸" : "▾"}
+            ▾
           </span>
           <h2>{title}</h2>
         </button>
-        {headerExtra && !collapsed ? (
+        {headerExtra ? (
           <div className="panel-head-extra">{headerExtra}</div>
         ) : null}
       </div>
       <div
         id={bodyId}
         className={`panel-body${bodyClassName ? ` ${bodyClassName}` : ""}`}
-        hidden={collapsed}
       >
         {children}
       </div>

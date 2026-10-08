@@ -82,36 +82,26 @@ export function MemberList({
   }, [focusPersonId, collapsed]);
 
   return (
-    <nav
-      className={`member-column${collapsed ? " is-collapsed" : ""}`}
-      aria-label="Member"
-    >
+    <nav className="member-column" aria-label="Member" hidden={collapsed}>
       <header className="member-column-header">
         <button
           type="button"
           className="panel-toggle member-toggle"
           aria-expanded={!collapsed}
           aria-controls="member-list"
-          title={collapsed ? "Member-Liste aufklappen" : "Member-Liste einklappen"}
+          title="Member-Liste einklappen"
           onClick={toggleCollapsed}
         >
           <span className="panel-chevron" aria-hidden="true">
-            {collapsed ? "▸" : "▾"}
+            ▾
           </span>
           <h2>Member ({sorted.length})</h2>
         </button>
-        {collapsed ? null : (
-          <p className="member-column-hint">
-            Doppelklick aufs Bild zeigt nur dessen Verbindungen
-          </p>
-        )}
+        <p className="member-column-hint">
+          Doppelklick aufs Bild zeigt nur dessen Verbindungen
+        </p>
       </header>
-      <ul
-        className="member-list"
-        id="member-list"
-        ref={listRef}
-        hidden={collapsed}
-      >
+      <ul className="member-list" id="member-list" ref={listRef}>
         {sorted.map((person) => {
           const active = focusPersonId === person.id;
           const hidden = !personMatchesRoles(person, visibleRoles);

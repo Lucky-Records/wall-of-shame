@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CategoryFilters } from "./components/CategoryFilters";
+import { CollapsedDock, type DockItem } from "./components/CollapsedDock";
 import { MemberList } from "./components/MemberList";
 import { useCollapsed } from "./hooks/useCollapsed";
 import { NetworkGraph } from "./components/NetworkGraph";
@@ -60,7 +61,12 @@ export default function App() {
   >({});
   const [previewClearToken, setPreviewClearToken] = useState(0);
   const [membersCollapsed] = useCollapsed("members");
+  const [addCollapsed] = useCollapsed("add-person");
+  const [connectionsCollapsed] = useCollapsed("connections");
+  const [connectCollapsed] = useCollapsed("connect");
+  const [selectedCollapsed] = useCollapsed("selected");
   const [peopleCollapsed] = useCollapsed("people");
+  const [legendCollapsed] = useCollapsed("legend");
   const [hintCollapsed, toggleHint] = useCollapsed("stage-hint");
   // Shared by the graph (node double-click) and the member list.
   const [focusPersonId, setFocusPersonId] = useState<string | null>(null);
@@ -406,19 +412,72 @@ export default function App() {
     [focusPersonId, people, visibleRoles],
   );
 
+  // "Ausgewählt" only exists while a person is selected for connecting.
+  const selectedPresent =
+    !!connectFromId && people.some((p) => p.id === connectFromId);
+  const toolsCollapsed =
+    addCollapsed &&
+    connectionsCollapsed &&
+    connectCollapsed &&
+    (selectedCollapsed || !selectedPresent);
+  const sidebarHidden = toolsCollapsed && peopleCollapsed;
+
+  const sideDockItems: DockItem[] = [
+    membersCollapsed && { id: "members", letter: "M", label: "Member" },
+    addCollapsed && {
+      id: "add-person",
+      letter: "H",
+      label: "Person hinzufügen",
+    },
+    connectionsCollapsed && {
+      id: "connections",
+      letter: "V",
+      label: "Verbindungen",
+    },
+    connectCollapsed && {
+      id: "connect",
+      letter: "Z",
+      label: "Verbindung ziehen",
+    },
+    selectedCollapsed &&
+      selectedPresent && { id: "selected", letter: "A", label: "Ausgewählt" },
+    peopleCollapsed && { id: "people", letter: "P", label: "Personen" },
+  ].filter((item): item is DockItem => !!item);
+
+  const stageDockItems: DockItem[] = [
+    legendCollapsed && { id: "legend", letter: "R", label: "Rollen-Filter" },
+    hintCollapsed && { id: "stage-hint", letter: "T", label: "Tipps" },
+  ].filter((item): item is DockItem => !!item);
+
+  const shellClass = [
+    "app-shell",
+    sideDockItems.length ? "has-dock" : "",
+    membersCollapsed ? "members-collapsed" : "",
+    toolsCollapsed ? "tools-collapsed" : "",
+    peopleCollapsed ? "people-collapsed" : "",
+    sidebarHidden
+      ? "sidebar-hidden"
+      : toolsCollapsed || peopleCollapsed
+        ? "sidebar-single"
+        : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div
-      className={`app-shell${membersCollapsed ? " members-collapsed" : ""}${
-        peopleCollapsed ? " people-collapsed" : ""
-      }`}
-    >
+    <div className={shellClass}>
+      <CollapsedDock
+        items={sideDockItems}
+        className="side-dock"
+        ariaLabel="Eingeklappte Boxen"
+      />
       <MemberList
         people={people}
         visibleRoles={visibleRoles}
         focusPersonId={focusPersonId}
         onToggleFocus={handleMemberToggleFocus}
       />
-      <aside className="sidebar">
+      <aside className="sidebar" hidden={sidebarHidden}>
         <header className="sidebar-header">
           <p className="eyebrow">Lucky · öffentlich</p>
           <h1>The Wall of Shame</h1>
@@ -461,7 +520,19 @@ export default function App() {
         />
       </aside>
       <main className="stage">
-        <CategoryFilters visible={visibleRoles} onToggle={toggleRole} />
+        <div className="stage-overlay-tl">
+          {legendCollapsed ? null : (
+            <CategoryFilters visible={visibleRoles} onToggle={toggleRole} />
+          )}
+          <CollapsedDock
+            items={stageDockItems}
+            className="stage-dock"
+            ariaLabel="Eingeklappte Graph-Boxen"
+          />
+        </div>
+        {sidebarHidden && statusMessage ? (
+          <p className="status stage-status">{statusMessage}</p>
+        ) : null}
         {graphLoading ? (
           <p className="stage-hint">Netzwerk wird geladen…</p>
         ) : graphError ? (
@@ -483,31 +554,26 @@ export default function App() {
             centerRequest={centerRequest}
           />
         )}
-        <div
-          className={`stage-hint stage-hint-collapsible${
-            hintCollapsed ? " is-collapsed" : ""
-          }`}
-        >
-          <button
-            type="button"
-            className="legend-toggle"
-            aria-expanded={!hintCollapsed}
-            title={hintCollapsed ? "Tipps aufklappen" : "Tipps einklappen"}
-            onClick={toggleHint}
-          >
-            <span className="panel-chevron" aria-hidden="true">
-              {hintCollapsed ? "▸" : "▾"}
-            </span>
-            {hintCollapsed ? <span className="legend-title">Tipps</span> : null}
-          </button>
-          {hintCollapsed ? null : (
+        {hintCollapsed ? null : (
+          <div className="stage-hint stage-hint-collapsible">
+            <button
+              type="button"
+              className="legend-toggle"
+              aria-expanded={true}
+              title="Tipps einklappen"
+              onClick={toggleHint}
+            >
+              <span className="panel-chevron" aria-hidden="true">
+                ▾
+              </span>
+            </button>
             <span className="stage-hint-text">
               Profil-Icons ziehen zum Verschieben · Doppelklick blendet fremde
               Linien aus · nochmal, leerer Hintergrund oder Escape zeigt alle ·
-              Scrollen zoomen
+              Scrollen oder +/− zoomen
             </span>
-          )}
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );

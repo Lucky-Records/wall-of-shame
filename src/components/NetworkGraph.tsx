@@ -975,6 +975,45 @@ export function NetworkGraph({
       onDrop={handleDrop}
     >
       <div className="graph-canvas" ref={containerRef} />
+      <div className="zoom-controls" role="group" aria-label="Zoom">
+        <button
+          type="button"
+          className="zoom-btn"
+          title="Vergrössern"
+          aria-label="Vergrössern"
+          onClick={() => {
+            void sigmaRef.current
+              ?.getCamera()
+              .animatedZoom({ factor: 1.5, duration: 250 });
+          }}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          className="zoom-btn zoom-btn-reset"
+          title="Ansicht zurücksetzen (alles zeigen)"
+          aria-label="Ansicht zurücksetzen"
+          onClick={() => {
+            void sigmaRef.current?.getCamera().animatedReset({ duration: 300 });
+          }}
+        >
+          ⟲
+        </button>
+        <button
+          type="button"
+          className="zoom-btn"
+          title="Verkleinern"
+          aria-label="Verkleinern"
+          onClick={() => {
+            void sigmaRef.current
+              ?.getCamera()
+              .animatedUnzoom({ factor: 1.5, duration: 250 });
+          }}
+        >
+          −
+        </button>
+      </div>
       {dragOver ? (
         <div className="graph-drop-hint" aria-hidden="true">
           Hier ablegen

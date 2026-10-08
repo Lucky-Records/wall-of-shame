@@ -8,27 +8,22 @@ interface CategoryFiltersProps {
 }
 
 export function CategoryFilters({ visible, onToggle }: CategoryFiltersProps) {
-  const [collapsed, toggleCollapsed] = useCollapsed("legend");
+  const [, toggleCollapsed] = useCollapsed("legend");
   return (
-    <div className={`legend-bar${collapsed ? " is-collapsed" : ""}`}>
+    <div className="legend-bar">
       <button
         type="button"
         className="legend-toggle"
-        aria-expanded={!collapsed}
-        title={collapsed ? "Rollen-Filter aufklappen" : "Rollen-Filter einklappen"}
+        aria-expanded={true}
+        title="Rollen-Filter einklappen"
         onClick={toggleCollapsed}
       >
         <span className="panel-chevron" aria-hidden="true">
-          {collapsed ? "▸" : "▾"}
+          ▾
         </span>
-        <span className="legend-title">
-          Rollen
-          {collapsed && visible.size < ALL_ROLES.length
-            ? ` (${visible.size}/${ALL_ROLES.length})`
-            : ""}
-        </span>
+        <span className="legend-title">Rollen</span>
       </button>
-      {!collapsed && ALL_ROLES.map((role) => {
+      {ALL_ROLES.map((role) => {
         const active = visible.has(role);
         return (
           <button
