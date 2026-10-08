@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CategoryFilters } from "./components/CategoryFilters";
+import { MemberList } from "./components/MemberList";
 import { NetworkGraph } from "./components/NetworkGraph";
 import { Sidebar } from "./components/Sidebar";
 import {
@@ -26,6 +27,7 @@ import {
   ALL_ROLES,
   formatConnectionTags,
   formatRoles,
+  personMatchesRoles,
 } from "./types";
 
 function hasCoords(
@@ -56,6 +58,12 @@ export default function App() {
     Record<string, GraphPosition>
   >({});
   const [previewClearToken, setPreviewClearToken] = useState(0);
+  // Shared by the graph (node double-click) and the member list.
+  const [focusPersonId, setFocusPersonId] = useState<string | null>(null);
+  const [centerRequest, setCenterRequest] = useState<{
+    id: string;
+    nonce: number;
+  } | null>(null);
 
   const flash = useCallback((message: string) => {
     setStatusMessage(message);
@@ -368,8 +376,40 @@ export default function App() {
     });
   }, []);
 
+  const handleMemberToggleFocus = useCallback(
+    (personId: string) => {
+      if (focusPersonId === personId) {
+        setFocusPersonId(null);
+        return;
+      }
+      const person = people.find((p) => p.id === personId);
+      if (!person) return;
+      // A member hidden by the role filter would be dropped right away;
+      // show their roles again so the filter has something to focus.
+      if (!personMatchesRoles(person, visibleRoles)) {
+        setVisibleRoles((prev) => {
+          const next = new Set(prev);
+          for (const role of person.roles) next.add(role);
+          return next;
+        });
+      }
+      setFocusPersonId(personId);
+      setCenterRequest((prev) => ({
+        id: personId,
+        nonce: (prev?.nonce ?? 0) + 1,
+      }));
+    },
+    [focusPersonId, people, visibleRoles],
+  );
+
   return (
     <div className="app-shell">
+      <MemberList
+        people={people}
+        visibleRoles={visibleRoles}
+        focusPersonId={focusPersonId}
+        onToggleFocus={handleMemberToggleFocus}
+      />
       <aside className="sidebar">
         <header className="sidebar-header">
           <p className="eyebrow">Lucky · öffentlich</p>
@@ -430,6 +470,9 @@ export default function App() {
             onNodeMove={(id, pos) => {
               void handleNodeMove(id, pos);
             }}
+            focusPersonId={focusPersonId}
+            onFocusPersonChange={setFocusPersonId}
+            centerRequest={centerRequest}
           />
         )}
         <p className="stage-hint">

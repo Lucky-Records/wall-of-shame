@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type DragEvent,
+  type SetStateAction,
+} from "react";
 import { MultiGraph } from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
 import Sigma from "sigma";
@@ -45,6 +53,11 @@ interface NetworkGraphProps {
   onNodeClick: (personId: string) => void;
   onPersonDrop: (draft: PersonDraft, position: GraphPosition) => void;
   onNodeMove: (personId: string, position: GraphPosition) => void;
+  /** Person whose lines are the only ones shown (double-click filter). */
+  focusPersonId: string | null;
+  onFocusPersonChange: Dispatch<SetStateAction<string | null>>;
+  /** Pan the camera to this node; nonce changes per request. */
+  centerRequest: { id: string; nonce: number } | null;
 }
 
 type NodeLabelData = {
@@ -467,6 +480,9 @@ export function NetworkGraph({
   onNodeClick,
   onPersonDrop,
   onNodeMove,
+  focusPersonId,
+  onFocusPersonChange,
+  centerRequest,
 }: NetworkGraphProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -480,9 +496,10 @@ export function NetworkGraph({
   const dragMovedRef = useRef(false);
   const skipClickRef = useRef(false);
   const lastDragAtRef = useRef(0);
-  const [focusPersonId, setFocusPersonId] = useState<string | null>(null);
-  const focusPersonIdRef = useRef<string | null>(null);
+  const focusPersonIdRef = useRef<string | null>(focusPersonId);
   focusPersonIdRef.current = focusPersonId;
+  const setFocusPersonIdRef = useRef(onFocusPersonChange);
+  setFocusPersonIdRef.current = onFocusPersonChange;
   onNodeClickRef.current = onNodeClick;
   onPersonDropRef.current = onPersonDrop;
   onNodeMoveRef.current = onNodeMove;
@@ -626,13 +643,15 @@ export function NetworkGraph({
     sigma.on("doubleClickNode", ({ node, event }) => {
       event.preventSigmaDefault();
       if (Date.now() - lastDragAtRef.current < 500) return;
-      setFocusPersonId((current) => (current === node ? null : node));
+      setFocusPersonIdRef.current((current) =>
+        current === node ? null : node,
+      );
     });
 
     sigma.on("doubleClickStage", ({ event }) => {
       if (!focusPersonIdRef.current) return;
       event.preventSigmaDefault();
-      setFocusPersonId(null);
+      setFocusPersonIdRef.current(null);
     });
 
     function onKey(event: KeyboardEvent) {
@@ -649,7 +668,7 @@ export function NetworkGraph({
           return;
         }
       }
-      setFocusPersonId(null);
+      setFocusPersonIdRef.current(null);
     }
     window.addEventListener("keydown", onKey);
 
@@ -663,9 +682,25 @@ export function NetworkGraph({
 
   useEffect(() => {
     if (focusPersonId && !visibleIds.has(focusPersonId)) {
-      setFocusPersonId(null);
+      setFocusPersonIdRef.current(null);
     }
   }, [focusPersonId, visibleIds]);
+
+  // Member list double-click: bring the focused node into view.
+  useEffect(() => {
+    const sigma = sigmaRef.current;
+    if (!sigma || !centerRequest) return;
+    const frame = window.requestAnimationFrame(() => {
+      const data = sigma.getNodeDisplayData(centerRequest.id);
+      if (!data) return;
+      const camera = sigma.getCamera();
+      void camera.animate(
+        { x: data.x, y: data.y, ratio: Math.min(camera.ratio, 1) },
+        { duration: 450 },
+      );
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [centerRequest]);
 
   // Sync graph data + layout
   useEffect(() => {
@@ -687,7 +722,8 @@ export function NetworkGraph({
     visiblePeople.forEach((person, index) => {
       const main = primaryRole(person.roles);
       const color = ROLE_COLORS[main];
-      const highlighted = connectFromId === person.id;
+      const highlighted =
+        connectFromId === person.id || focusPersonId === person.id;
       const size = highlighted ? 28 : 22;
       const pos = resolvePosition(
         person,
@@ -868,7 +904,13 @@ export function NetworkGraph({
     }
 
     sigma.refresh();
-  }, [visiblePeople, visibleConnections, connectFromId, positionHints]);
+  }, [
+    visiblePeople,
+    visibleConnections,
+    connectFromId,
+    focusPersonId,
+    positionHints,
+  ]);
 
   function handleDragOver(e: DragEvent<HTMLDivElement>) {
     if (![...e.dataTransfer.types].includes(PERSON_DRAG_MIME)) return;
