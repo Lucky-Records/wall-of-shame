@@ -1,3 +1,4 @@
+import { useCollapsed } from "../hooks/useCollapsed";
 import type { Role } from "../types";
 import { ALL_ROLES, ROLE_COLORS, ROLE_LABELS } from "../types";
 
@@ -7,10 +8,27 @@ interface CategoryFiltersProps {
 }
 
 export function CategoryFilters({ visible, onToggle }: CategoryFiltersProps) {
+  const [collapsed, toggleCollapsed] = useCollapsed("legend");
   return (
-    <div className="legend-bar">
-      <span className="legend-title">Rollen</span>
-      {ALL_ROLES.map((role) => {
+    <div className={`legend-bar${collapsed ? " is-collapsed" : ""}`}>
+      <button
+        type="button"
+        className="legend-toggle"
+        aria-expanded={!collapsed}
+        title={collapsed ? "Rollen-Filter aufklappen" : "Rollen-Filter einklappen"}
+        onClick={toggleCollapsed}
+      >
+        <span className="panel-chevron" aria-hidden="true">
+          {collapsed ? "▸" : "▾"}
+        </span>
+        <span className="legend-title">
+          Rollen
+          {collapsed && visible.size < ALL_ROLES.length
+            ? ` (${visible.size}/${ALL_ROLES.length})`
+            : ""}
+        </span>
+      </button>
+      {!collapsed && ALL_ROLES.map((role) => {
         const active = visible.has(role);
         return (
           <button

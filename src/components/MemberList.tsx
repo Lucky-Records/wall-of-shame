@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useCollapsed } from "../hooks/useCollapsed";
 import type { Person, Role } from "../types";
 import { personMatchesRoles, primaryRole, ROLE_COLORS } from "../types";
 
@@ -61,6 +62,7 @@ export function MemberList({
   onToggleFocus,
 }: MemberListProps) {
   const listRef = useRef<HTMLUListElement | null>(null);
+  const [collapsed, toggleCollapsed] = useCollapsed("members");
 
   const sorted = useMemo(
     () =>
@@ -72,22 +74,44 @@ export function MemberList({
 
   // Keep the active member in view when the focus comes from the graph.
   useEffect(() => {
-    if (!focusPersonId || !listRef.current) return;
+    if (collapsed || !focusPersonId || !listRef.current) return;
     const row = listRef.current.querySelector<HTMLElement>(
       `[data-member-id="${CSS.escape(focusPersonId)}"]`,
     );
     row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [focusPersonId]);
+  }, [focusPersonId, collapsed]);
 
   return (
-    <nav className="member-column" aria-label="Member">
+    <nav
+      className={`member-column${collapsed ? " is-collapsed" : ""}`}
+      aria-label="Member"
+    >
       <header className="member-column-header">
-        <h2>Member ({sorted.length})</h2>
-        <p className="member-column-hint">
-          Doppelklick aufs Bild zeigt nur dessen Verbindungen
-        </p>
+        <button
+          type="button"
+          className="panel-toggle member-toggle"
+          aria-expanded={!collapsed}
+          aria-controls="member-list"
+          title={collapsed ? "Member-Liste aufklappen" : "Member-Liste einklappen"}
+          onClick={toggleCollapsed}
+        >
+          <span className="panel-chevron" aria-hidden="true">
+            {collapsed ? "▸" : "▾"}
+          </span>
+          <h2>Member ({sorted.length})</h2>
+        </button>
+        {collapsed ? null : (
+          <p className="member-column-hint">
+            Doppelklick aufs Bild zeigt nur dessen Verbindungen
+          </p>
+        )}
       </header>
-      <ul className="member-list" ref={listRef}>
+      <ul
+        className="member-list"
+        id="member-list"
+        ref={listRef}
+        hidden={collapsed}
+      >
         {sorted.map((person) => {
           const active = focusPersonId === person.id;
           const hidden = !personMatchesRoles(person, visibleRoles);

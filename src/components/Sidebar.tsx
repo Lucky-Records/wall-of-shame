@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { CollapsiblePanel } from "./CollapsiblePanel";
 import type {
   Connection,
   ConnectionKind,
@@ -415,8 +416,11 @@ export function Sidebar({
     <>
       <div className="sidebar-panels">
         <div className="sidebar-col sidebar-col-tools">
-<section className={`panel${!canEdit ? " panel-locked" : ""}`}>
-        <h2>Person hinzufügen</h2>
+<CollapsiblePanel
+          id="add-person"
+          title="Person hinzufügen"
+          className={!canEdit ? "panel-locked" : undefined}
+        >
         {!canEdit ? (
           <p className="lock-hint" role="note">
             <strong>Gesperrt.</strong> Bearbeiten ist gerade nicht möglich.
@@ -541,10 +545,12 @@ export function Sidebar({
           Link → Profil laden → Funktionen wählen → auf den Graph ziehen (oder
           Button). Verbindungen sind gerichtet (Pfeil A → B).
         </p>
-      </section>
+      </CollapsiblePanel>
 
-<section className="panel">
-        <h2>Verbindungen ({connections.length})</h2>
+<CollapsiblePanel
+          id="connections"
+          title={`Verbindungen (${connections.length})`}
+        >
         {canEdit && connectionsSorted.length > 0 ? (
           <p className="hint">
             Chip anklicken zum Abwählen (ohne die ganze Verbindung zu löschen;
@@ -638,10 +644,13 @@ export function Sidebar({
             })}
           </ul>
         )}
-      </section>
+      </CollapsiblePanel>
 
-<section className={`panel${!canEdit ? " panel-locked" : ""}`}>
-        <h2>Verbindung ziehen</h2>
+<CollapsiblePanel
+          id="connect"
+          title="Verbindung ziehen"
+          className={!canEdit ? "panel-locked" : undefined}
+        >
         {!canEdit ? (
           <p className="lock-hint" role="note">
             <strong>Gesperrt.</strong> Nach dem Hinzufügen zwei Personen wählen.
@@ -732,11 +741,14 @@ export function Sidebar({
             </form>
           ) : null}
         </div>
-      </section>
+      </CollapsiblePanel>
 
 {canEdit && connectFrom ? (
-        <section className="panel panel-danger">
-          <h2>Ausgewählt</h2>
+        <CollapsiblePanel
+          id="selected"
+          title="Ausgewählt"
+          className="panel-danger"
+        >
           <div className="profile-preview">
             <img
               src={connectFrom.avatarUrl}
@@ -787,23 +799,27 @@ export function Sidebar({
           <p className="hint">
             Entfernen löscht auch alle Verbindungen dieser Person.
           </p>
-        </section>
+        </CollapsiblePanel>
       ) : null}
         </div>
 
         <div className="sidebar-col sidebar-col-people">
-<section className="panel">
-        <div className="people-panel-header">
-          <h2>Personen ({peopleFiltered.length})</h2>
-          <input
-            type="search"
-            className="people-search"
-            placeholder="Suchen…"
-            value={peopleSearch}
-            onChange={(e) => setPeopleSearch(e.target.value)}
-            aria-label="Personen suchen"
-          />
-        </div>
+<CollapsiblePanel
+          id="people"
+          title={`Personen (${peopleFiltered.length})`}
+          className="people-panel"
+          bodyClassName="people-panel-body"
+          headerExtra={
+            <input
+              type="search"
+              className="people-search"
+              placeholder="Suchen…"
+              value={peopleSearch}
+              onChange={(e) => setPeopleSearch(e.target.value)}
+              aria-label="Personen suchen"
+            />
+          }
+        >
         <ul className="people-list">
           {peopleFiltered.map((p) => (
             <li key={p.id}>
@@ -864,7 +880,7 @@ export function Sidebar({
             </li>
           ))}
         </ul>
-      </section>
+      </CollapsiblePanel>
         </div>
       </div>
       {statusMessage ? <p className="status">{statusMessage}</p> : null}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CategoryFilters } from "./components/CategoryFilters";
 import { MemberList } from "./components/MemberList";
+import { useCollapsed } from "./hooks/useCollapsed";
 import { NetworkGraph } from "./components/NetworkGraph";
 import { Sidebar } from "./components/Sidebar";
 import {
@@ -58,6 +59,9 @@ export default function App() {
     Record<string, GraphPosition>
   >({});
   const [previewClearToken, setPreviewClearToken] = useState(0);
+  const [membersCollapsed] = useCollapsed("members");
+  const [peopleCollapsed] = useCollapsed("people");
+  const [hintCollapsed, toggleHint] = useCollapsed("stage-hint");
   // Shared by the graph (node double-click) and the member list.
   const [focusPersonId, setFocusPersonId] = useState<string | null>(null);
   const [centerRequest, setCenterRequest] = useState<{
@@ -403,7 +407,11 @@ export default function App() {
   );
 
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell${membersCollapsed ? " members-collapsed" : ""}${
+        peopleCollapsed ? " people-collapsed" : ""
+      }`}
+    >
       <MemberList
         people={people}
         visibleRoles={visibleRoles}
@@ -475,11 +483,31 @@ export default function App() {
             centerRequest={centerRequest}
           />
         )}
-        <p className="stage-hint">
-          Profil-Icons ziehen zum Verschieben · Doppelklick blendet fremde
-          Linien aus · nochmal, leerer Hintergrund oder Escape zeigt alle ·
-          Scrollen zoomen
-        </p>
+        <div
+          className={`stage-hint stage-hint-collapsible${
+            hintCollapsed ? " is-collapsed" : ""
+          }`}
+        >
+          <button
+            type="button"
+            className="legend-toggle"
+            aria-expanded={!hintCollapsed}
+            title={hintCollapsed ? "Tipps aufklappen" : "Tipps einklappen"}
+            onClick={toggleHint}
+          >
+            <span className="panel-chevron" aria-hidden="true">
+              {hintCollapsed ? "▸" : "▾"}
+            </span>
+            {hintCollapsed ? <span className="legend-title">Tipps</span> : null}
+          </button>
+          {hintCollapsed ? null : (
+            <span className="stage-hint-text">
+              Profil-Icons ziehen zum Verschieben · Doppelklick blendet fremde
+              Linien aus · nochmal, leerer Hintergrund oder Escape zeigt alle ·
+              Scrollen zoomen
+            </span>
+          )}
+        </div>
       </main>
     </div>
   );

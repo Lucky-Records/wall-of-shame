@@ -672,7 +672,23 @@ export function NetworkGraph({
     }
     window.addEventListener("keydown", onKey);
 
+    // Collapsing boxes changes the canvas size without a window resize.
+    let resizeFrame = 0;
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            window.cancelAnimationFrame(resizeFrame);
+            resizeFrame = window.requestAnimationFrame(() => {
+              sigma.resize();
+              sigma.refresh();
+            });
+          });
+    resizeObserver?.observe(containerRef.current);
+
     return () => {
+      resizeObserver?.disconnect();
+      window.cancelAnimationFrame(resizeFrame);
       window.removeEventListener("keydown", onKey);
       sigma.kill();
       sigmaRef.current = null;
