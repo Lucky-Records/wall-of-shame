@@ -33,3 +33,4 @@ data/graph.json
 
 # Local Discord #liste snapshots
 liste-snapshot.png
+.wrangler/

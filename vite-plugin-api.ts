@@ -4,13 +4,6 @@ import { fileURLToPath } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import {
-  handleAuthCallbackGet,
-  handleAuthDiscordGet,
-  handleAuthLogoutPost,
-  handleMeGet,
-} from "./functions/_lib/authHandlers.ts";
-import type { DiscordEnv } from "./functions/_lib/discord.ts";
-import {
   handleConnectionDelete,
   handleConnectionPatch,
   handleConnectionsPost,
@@ -32,10 +25,22 @@ import {
 } from "./functions/_lib/twitch.ts";
 import { jsonResponse } from "./functions/_lib/http.ts";
 
-type ApiEnv = DiscordEnv & {
+type ApiEnv = {
   TWITCH_CLIENT_ID?: string;
   TWITCH_CLIENT_SECRET?: string;
   WALL_OF_SHAME_NOTIFY_URL?: string;
+};
+
+const DEV_MEMBER = {
+  id: 0,
+  username: "dev",
+  displayName: "Dev (lokal)",
+  isAdmin: false,
+  disabled: false,
+  createdAt: 0,
+  lastLoginAt: null,
+  lastSeenAt: null,
+  online: true,
 };
 
 const rootDir = dirname(fileURLToPath(import.meta.url));
@@ -228,22 +233,16 @@ function attachApi(
       ) {
         response = await handleTwitchUser(request, env);
       } else if (
-        pathname === "/api/me" &&
+        pathname === "/api/auth/me" &&
         (method === "GET" || method === "HEAD")
       ) {
-        response = await handleMeGet(request, env);
-      } else if (
-        pathname === "/api/auth/discord" &&
-        (method === "GET" || method === "HEAD")
-      ) {
-        response = await handleAuthDiscordGet(request, env);
-      } else if (
-        pathname === "/api/auth/callback" &&
-        (method === "GET" || method === "HEAD")
-      ) {
-        response = await handleAuthCallbackGet(request, env);
+        // Local dev only (never deployed): a fake admin so the UI renders.
+        // Production auth lives in functions/_middleware.ts + Cloudflare D1.
+        response = jsonResponse({ ok: true, member: DEV_MEMBER });
+      } else if (pathname === "/api/auth/heartbeat" && method === "POST") {
+        response = jsonResponse({ ok: true, at: Date.now() });
       } else if (pathname === "/api/auth/logout" && method === "POST") {
-        response = await handleAuthLogoutPost(request, env);
+        response = jsonResponse({ ok: true });
       } else if (
         pathname === "/api/graph" &&
         (method === "GET" || method === "HEAD")
