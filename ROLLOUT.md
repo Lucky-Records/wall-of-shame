@@ -28,6 +28,8 @@ cd ~/Downloads/wos-laptop-rollout
 bash rollout.sh
 ```
 
+Alternativ unter Windows: Doppelklick auf `rollout.cmd`.
+
 Probelauf ohne Cloudflare (lokale Datenbank + lokaler Server):
 `.\rollout.ps1 -Local` bzw. `bash rollout.sh --local`.
 
