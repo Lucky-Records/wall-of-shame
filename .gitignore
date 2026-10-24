@@ -33,3 +33,8 @@ data/graph.json
 
 # Local Discord #liste snapshots
 liste-snapshot.png
+.wrangler/
+rollout/seed-admin.sql
+rollout/d1-id.txt
+rollout-*.log
+wrangler.toml.rollout-backup

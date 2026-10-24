@@ -1477,3 +1477,61 @@ select:disabled {
     grid-row: 4;
   }
 }
+
+/* Logged-in member chip (top-right of the board) */
+.user-bar {
+  position: absolute;
+  z-index: 4;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.35rem 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(21, 30, 54, 0.92);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-size: 0.82rem;
+  max-width: calc(100% - 2rem);
+}
+
+.user-bar .user-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.7);
+  flex: none;
+}
+
+.user-bar .user-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-bar .user-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.user-bar .user-link:hover {
+  text-decoration: underline;
+}
+
+.user-bar .user-logout {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  cursor: pointer;
+}
+
+.user-bar .user-logout:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}

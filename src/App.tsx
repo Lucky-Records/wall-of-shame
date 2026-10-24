@@ -5,6 +5,7 @@ import { MemberList } from "./components/MemberList";
 import { useCollapsed } from "./hooks/useCollapsed";
 import { NetworkGraph } from "./components/NetworkGraph";
 import { Sidebar } from "./components/Sidebar";
+import { UserBar } from "./components/UserBar";
 import {
   apiAddConnection,
   apiAddPerson,
@@ -479,7 +480,7 @@ export default function App() {
       />
       <aside className="sidebar" hidden={sidebarHidden}>
         <header className="sidebar-header">
-          <p className="eyebrow">Lucky · öffentlich</p>
+          <p className="eyebrow">Lucky · nur für Member</p>
           <h1>The Wall of Shame</h1>
           <p className="tagline">
             Interaktive Community-Netzwerk-Karte. Mehrfach-Rollen, gerichtete
@@ -520,6 +521,7 @@ export default function App() {
         />
       </aside>
       <main className="stage">
+        <UserBar />
         <div className="stage-overlay-tl">
           {legendCollapsed ? null : (
             <CategoryFilters visible={visibleRoles} onToggle={toggleRole} />

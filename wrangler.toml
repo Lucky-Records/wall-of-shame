@@ -8,3 +8,10 @@ pages_build_output_dir = "dist"
 [[kv_namespaces]]
 binding = "GRAPH_KV"
 id = "f5589df19cc74053b800376d7f0cad78"
+
+# Member logins, sessions and login log (see migrations/).
+[[d1_databases]]
+binding = "DB"
+database_name = "wall-of-shame-db"
+database_id = "49a49799-692e-4a62-8022-b884f4c1aa88"
+migrations_dir = "migrations"

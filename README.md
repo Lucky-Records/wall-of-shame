@@ -3,8 +3,8 @@
 Interactive community network map for Discord — built for **Lucky**.
 
 Nodes are people (with avatar + name). Edges are connections between them.
-The board is **publicly editable**: anyone can add people, change roles,
-draw connections, and delete people. No Discord login required.
+The board is **members only**: viewing and editing require a login. Lucky
+creates member accounts (username + password) in the admin area at `/admin`.
 
 ## Features
 
@@ -18,7 +18,11 @@ draw connections, and delete people. No Discord login required.
   - **X/Twitter** → public FxTwitter profile API + [unavatar.io](https://unavatar.io) avatar fallback (no paid X API key)
 - Draw connections between people (click two nodes, or use the sidebar)
 - Delete people (and their edges) from the list or selection panel
-- Public read **and** write of graph APIs
+- Member logins (Cloudflare D1): PBKDF2-SHA256 password hashes, HttpOnly
+  session cookie (30 days), lockout after repeated failed logins
+- Everything is gated by `functions/_middleware.ts` (only `/login` + build assets are public)
+- Admin area `/admin`: create / reset / disable / delete members, online status
+  (heartbeat every 60 s, online = seen in the last 2 min), login log (Europe/Zurich)
 - Durable graph storage on Cloudflare via Workers KV (`GRAPH_KV`)
 - Dark public-facing board UI (German)
 
@@ -46,7 +50,6 @@ cp .env.example .env
 | `APP_ORIGIN` | Optional public origin (local/prod) |
 | `WALL_OF_SHAME_NOTIFY_URL` | Optional Netzy webhook — `POST {}` after every graph mutation so #liste can refresh |
 
-Discord OAuth variables are optional/legacy and unused for edit gating.
 
 ### Twitch setup
 
@@ -64,6 +67,23 @@ the public fallback is used.
 Production mutations persist in KV namespace binding `GRAPH_KV` (see `wrangler.toml`).
 Redeploy after changing bindings so Pages Functions pick them up.
 
+
+## Cloudflare D1 (members)
+
+Binding `DB` → database `wall-of-shame-db` (see `wrangler.toml`, schema in `migrations/`).
+
+```bash
+npx wrangler d1 create wall-of-shame-db          # put the id into wrangler.toml
+npx wrangler d1 migrations apply wall-of-shame-db --remote
+# bootstrap admin (credentials come from an env file outside the repo):
+set -a; . /path/to/wall-of-shame-admin.env; set +a
+node scripts/seed-admin.mjs > /tmp/seed-admin.sql
+npx wrangler d1 execute wall-of-shame-db --remote --file /tmp/seed-admin.sql
+```
+
+Local test with the real gate: `npm run build && npx wrangler pages dev dist`
+(after `wrangler d1 migrations apply wall-of-shame-db --local`). `npm run dev`
+skips the login and acts as a local dev member.
 
 ## Discord #liste refresh (Netzy)
 
